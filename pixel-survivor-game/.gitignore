@@ -1,0 +1,28 @@
+# Backend
+backend/target/
+backend/.mvn/
+backend/*.iml
+backend/.idea/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Godot
+game/.godot/
+game/*.import
+game/export/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

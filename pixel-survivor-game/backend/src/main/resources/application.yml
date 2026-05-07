@@ -1,0 +1,70 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: pixel-survivor
+
+  # MySQL
+  datasource:
+    url: jdbc:mysql://localhost:3306/pixel_survivor?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: "1234"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1800000
+
+  # Redis
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 3000ms
+
+# MyBatis-Plus
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.pixelsurvivor.module.*.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT
+jwt:
+  secret: PixelSurvivorSecretKey2026ForGraduationProject!@#$%^&*
+  game-token-expire: 7200      # 游戏端Token有效期(秒) 2小时
+  admin-token-expire: 28800    # 管理端Token有效期(秒) 8小时
+
+# Knife4j
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+# 日志
+logging:
+  level:
+    com.pixelsurvivor: debug
+    com.pixelsurvivor.module.*.mapper: debug
