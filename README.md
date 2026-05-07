@@ -115,10 +115,10 @@ npm run dev
 
 ## 📄 文档
 
-- [需求规格说明书](docs/requirements.md)
-- [数据库设计文档](docs/database-design.md)
-- [API接口文档](docs/api-design.md)
-- [系统架构文档](docs/architecture.md)
+- [需求规格说明书](pixel-survivor-game/docs/requirements.md)
+- [数据库设计文档](pixel-survivor-game/docs/database-design.md)
+- [API接口文档](pixel-survivor-game/docs/api-design.md)
+- [系统架构文档](pixel-survivor-game/docs/architecture.md)
 
 ## 📝 开发日志
 
