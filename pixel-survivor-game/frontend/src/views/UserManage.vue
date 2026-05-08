@@ -10,18 +10,21 @@
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="username" label="用户名" />
       <el-table-column prop="nickname" label="昵称" />
-      <el-table-column prop="gold" label="金币" width="80" />
-      <el-table-column prop="level" label="等级" width="60" />
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
           <el-tag :type="row.status === 0 ? 'success' : 'danger'">{{ row.status === 0 ? '正常' : '封禁' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="注册时间" width="170" />
-      <el-table-column label="操作" width="120">
+      <el-table-column prop="createTime" label="注册时间" width="170">
+        <template #default="{ row }">
+          {{ formatTime(row.createTime) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="180">
         <template #default="{ row }">
           <el-button v-if="row.status === 0" size="small" type="danger" @click="handleBan(row.id)">封禁</el-button>
           <el-button v-else size="small" type="success" @click="handleUnban(row.id)">解封</el-button>
+          <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -34,13 +37,21 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getUsers, banUser, unbanUser } from '../api/admin'
+import { getUsers, banUser, unbanUser, deleteUser } from '../api/admin'
 
 const users = ref([])
 const page = ref(1)
 const size = 20
 const total = ref(0)
 const keyword = ref('')
+
+function formatTime(time) {
+  if (!time) return '-'
+  if (typeof time === 'string' && time.includes('T')) {
+    return time.replace('T', ' ').substring(0, 19)
+  }
+  return time
+}
 
 async function loadData() {
   const res = await getUsers({ page: page.value, size, keyword: keyword.value || undefined })
@@ -58,6 +69,17 @@ async function handleBan(id) {
 async function handleUnban(id) {
   await unbanUser(id)
   ElMessage.success('解封成功')
+  loadData()
+}
+
+async function handleDelete(row) {
+  await ElMessageBox.confirm(
+    `确定要删除用户 "${row.username}" 吗？该操作将删除该用户的所有关联数据（背包、地图进度、游戏统计等），且不可恢复！`,
+    '警告',
+    { type: 'error', confirmButtonText: '确定删除', cancelButtonText: '取消' }
+  )
+  await deleteUser(row.id)
+  ElMessage.success('用户已删除')
   loadData()
 }
 

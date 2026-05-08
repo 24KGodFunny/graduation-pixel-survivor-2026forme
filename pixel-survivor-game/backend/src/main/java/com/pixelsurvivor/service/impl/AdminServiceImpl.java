@@ -4,12 +4,23 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pixelsurvivor.common.exception.BusinessException;
 import com.pixelsurvivor.common.result.ResultCode;
-import com.pixelsurvivor.entity.*;
+import com.pixelsurvivor.entity.Admin;
+import com.pixelsurvivor.entity.AdminOperationLog;
+import com.pixelsurvivor.entity.MapDefinition;
+import com.pixelsurvivor.entity.User;
+import com.pixelsurvivor.entity.UserSaveData;
 import com.pixelsurvivor.entity.vo.DailyStatsVO;
-import com.pixelsurvivor.mapper.*;
+import com.pixelsurvivor.mapper.AdminMapper;
+import com.pixelsurvivor.mapper.AdminOperationLogMapper;
+import com.pixelsurvivor.mapper.MapDefinitionMapper;
+import com.pixelsurvivor.mapper.UserMapper;
+import com.pixelsurvivor.mapper.UserSaveDataMapper;
 import com.pixelsurvivor.service.AdminService;
+import com.pixelsurvivor.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,7 +46,10 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
     private final AdminOperationLogMapper adminOperationLogMapper;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
-    private final PurchaseRecordMapper purchaseRecordMapper;
+    private final UserSaveDataMapper userSaveDataMapper;
+    private final MapDefinitionMapper mapDefinitionMapper;
+    private final UserService userService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public Admin login(String username, String password) {
@@ -153,15 +167,6 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
                         u -> u.getCreatedAt().toLocalDate().format(formatter),
                         Collectors.counting()));
 
-        // 查询购买记录数据（按天分组）
-        LambdaQueryWrapper<PurchaseRecord> prWrapper = new LambdaQueryWrapper<>();
-        prWrapper.ge(PurchaseRecord::getCreatedAt, LocalDateTime.of(startDate, LocalTime.MIN))
-                 .le(PurchaseRecord::getCreatedAt, LocalDateTime.of(endDate, LocalTime.MAX));
-        List<PurchaseRecord> purchases = purchaseRecordMapper.selectList(prWrapper);
-        Map<String, List<PurchaseRecord>> purchaseByDate = purchases.stream()
-                .collect(Collectors.groupingBy(
-                        p -> p.getCreatedAt().toLocalDate().format(formatter)));
-
         // 组装每日统计数据
         List<DailyStatsVO> stats = new ArrayList<>();
         LocalDate current = startDate;
@@ -170,12 +175,8 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
             DailyStatsVO vo = new DailyStatsVO();
             vo.setDate(dateStr);
             vo.setNewUsers(userCountByDate.getOrDefault(dateStr, 0L));
-
-            List<PurchaseRecord> dayPurchases = purchaseByDate.getOrDefault(dateStr, Collections.emptyList());
-            vo.setNewOrders((long) dayPurchases.size());
-            vo.setRevenue(dayPurchases.stream()
-                    .map(PurchaseRecord::getTotalPrice)
-                    .reduce(0, Integer::sum));
+            vo.setNewOrders(0L);
+            vo.setRevenue(0);
 
             stats.add(vo);
             current = current.plusDays(1);
@@ -190,17 +191,11 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         // 总用户数
         overview.put("totalUsers", userMapper.selectCount(null));
 
-        // 总订单数
-        overview.put("totalOrders", purchaseRecordMapper.selectCount(null));
+        // 总订单数（已移除购买功能，设为0）
+        overview.put("totalOrders", 0);
 
-        // 总收入
-        LambdaQueryWrapper<PurchaseRecord> allWrapper = new LambdaQueryWrapper<>();
-        allWrapper.eq(PurchaseRecord::getStatus, 1);
-        List<PurchaseRecord> allPurchases = purchaseRecordMapper.selectList(allWrapper);
-        Integer totalRevenue = allPurchases.stream()
-                .map(PurchaseRecord::getTotalPrice)
-                .reduce(0, Integer::sum);
-        overview.put("totalRevenue", totalRevenue);
+        // 总收入（已移除购买功能，设为0）
+        overview.put("totalRevenue", 0);
 
         // 今日新增用户
         LocalDateTime todayStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
@@ -210,19 +205,191 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
                         .le(User::getCreatedAt, todayEnd);
         overview.put("todayNewUsers", userMapper.selectCount(todayUserWrapper));
 
-        // 今日订单数
-        LambdaQueryWrapper<PurchaseRecord> todayOrderWrapper = new LambdaQueryWrapper<>();
-        todayOrderWrapper.ge(PurchaseRecord::getCreatedAt, todayStart)
-                         .le(PurchaseRecord::getCreatedAt, todayEnd);
-        overview.put("todayOrders", purchaseRecordMapper.selectCount(todayOrderWrapper));
+        // 今日订单数（已移除购买功能，设为0）
+        overview.put("todayOrders", 0);
 
-        // 今日收入
-        List<PurchaseRecord> todayPurchases = purchaseRecordMapper.selectList(todayOrderWrapper);
-        Integer todayRevenue = todayPurchases.stream()
-                .map(PurchaseRecord::getTotalPrice)
-                .reduce(0, Integer::sum);
-        overview.put("todayRevenue", todayRevenue);
+        // 今日收入（已移除购买功能，设为0）
+        overview.put("todayRevenue", 0);
 
         return overview;
+    }
+
+    @Override
+    public Map<String, Object> getUserDetail(Long userId) {
+        Map<String, Object> detail = new HashMap<>();
+
+        // 获取用户基本信息
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "用户不存在");
+        }
+        user.setPassword(null); // 清除密码
+        detail.put("user", user);
+
+        // 从 t_user_save_data 获取存档 JSON
+        detail.put("saveData", loadSaveData(userId));
+
+        return detail;
+    }
+
+    @Override
+    public Map<String, Object> getUserDetailByUsername(String username) {
+        Map<String, Object> detail = new HashMap<>();
+
+        // 根据用户名查询用户
+        LambdaQueryWrapper<User> userWrapper = new LambdaQueryWrapper<>();
+        userWrapper.eq(User::getUsername, username);
+        User user = userMapper.selectOne(userWrapper);
+        if (user == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "用户不存在");
+        }
+        user.setPassword(null); // 清除密码
+        detail.put("user", user);
+
+        // 从 t_user_save_data 获取存档 JSON
+        detail.put("saveData", loadSaveData(user.getId()));
+
+        return detail;
+    }
+
+    /**
+     * 从 t_user_save_data 加载用户的存档 JSON，解析为 Map 返回。
+     * 如果用户没有存档记录，返回默认值。
+     */
+    private Map<String, Object> loadSaveData(Long userId) {
+        LambdaQueryWrapper<UserSaveData> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserSaveData::getUserId, userId);
+        UserSaveData saveDataEntity = userSaveDataMapper.selectOne(wrapper);
+
+        Map<String, Object> saveData = new LinkedHashMap<>();
+
+        if (saveDataEntity != null && saveDataEntity.getSaveData() != null) {
+            try {
+                Map<String, Object> parsed = objectMapper.readValue(
+                        saveDataEntity.getSaveData(),
+                        new TypeReference<Map<String, Object>>() {});
+                saveData.putAll(parsed);
+            } catch (Exception e) {
+                // JSON 解析失败，使用默认值
+            }
+        }
+
+        // 确保所有字段都有默认值
+        saveData.putIfAbsent("unlocked_characters", Arrays.asList("warrior"));
+        saveData.putIfAbsent("character_levels", Collections.singletonMap("warrior", 1));
+        saveData.putIfAbsent("unlocked_maps", Arrays.asList("map_1"));
+        saveData.putIfAbsent("completed_maps", Collections.emptyList());
+        saveData.putIfAbsent("unlocked_achievements", Collections.emptyList());
+        saveData.putIfAbsent("coins", 0);
+        saveData.putIfAbsent("diamonds", 0);
+
+        // 附加地图定义信息（用于前端展示地图名称等）
+        LambdaQueryWrapper<MapDefinition> mapDefWrapper = new LambdaQueryWrapper<>();
+        mapDefWrapper.eq(MapDefinition::getIsActive, 1)
+                     .orderByAsc(MapDefinition::getChapter)
+                     .orderByAsc(MapDefinition::getOrderIndex);
+        List<MapDefinition> allMaps = mapDefinitionMapper.selectList(mapDefWrapper);
+        saveData.put("mapDefinitions", allMaps);
+
+        return saveData;
+    }
+
+    @Override
+    public void updateUser(Long userId, Map<String, Object> params) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "用户不存在");
+        }
+
+        if (params.containsKey("nickname")) {
+            user.setNickname((String) params.get("nickname"));
+        }
+
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+    }
+
+    @Override
+    public void updateSaveData(Long userId, Map<String, Object> params) {
+        // 查询或创建存档记录
+        LambdaQueryWrapper<UserSaveData> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserSaveData::getUserId, userId);
+        UserSaveData saveDataEntity = userSaveDataMapper.selectOne(wrapper);
+
+        Map<String, Object> saveData = new LinkedHashMap<>();
+
+        // 如果已有记录，先解析现有 JSON
+        if (saveDataEntity != null && saveDataEntity.getSaveData() != null) {
+            try {
+                Map<String, Object> parsed = objectMapper.readValue(
+                        saveDataEntity.getSaveData(),
+                        new TypeReference<Map<String, Object>>() {});
+                saveData.putAll(parsed);
+            } catch (Exception e) {
+                // JSON 解析失败，使用空 Map
+            }
+        }
+
+        // 合并前端传来的字段
+        if (params.containsKey("coins")) {
+            saveData.put("coins", ((Number) params.get("coins")).intValue());
+        }
+        if (params.containsKey("diamonds")) {
+            saveData.put("diamonds", ((Number) params.get("diamonds")).intValue());
+        }
+        if (params.containsKey("unlocked_characters")) {
+            saveData.put("unlocked_characters", params.get("unlocked_characters"));
+        }
+        if (params.containsKey("character_levels")) {
+            saveData.put("character_levels", params.get("character_levels"));
+        }
+        if (params.containsKey("unlocked_maps")) {
+            saveData.put("unlocked_maps", params.get("unlocked_maps"));
+        }
+        if (params.containsKey("completed_maps")) {
+            saveData.put("completed_maps", params.get("completed_maps"));
+        }
+        if (params.containsKey("unlocked_achievements")) {
+            saveData.put("unlocked_achievements", params.get("unlocked_achievements"));
+        }
+
+        // 序列化为 JSON 字符串
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(saveData);
+        } catch (Exception e) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "存档数据序列化失败");
+        }
+
+        if (saveDataEntity != null) {
+            // 更新已有记录
+            saveDataEntity.setSaveData(json);
+            saveDataEntity.setUpdatedAt(LocalDateTime.now());
+            userSaveDataMapper.updateById(saveDataEntity);
+        } else {
+            // 创建新记录
+            saveDataEntity = new UserSaveData();
+            saveDataEntity.setUserId(userId);
+            saveDataEntity.setSaveData(json);
+            saveDataEntity.setCreatedAt(LocalDateTime.now());
+            saveDataEntity.setUpdatedAt(LocalDateTime.now());
+            userSaveDataMapper.insert(saveDataEntity);
+        }
+    }
+
+    @Override
+    public void deleteUserCompletely(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "用户不存在");
+        }
+
+        // 删除用户存档数据
+        LambdaQueryWrapper<UserSaveData> saveDataWrapper = new LambdaQueryWrapper<>();
+        saveDataWrapper.eq(UserSaveData::getUserId, userId);
+        userSaveDataMapper.delete(saveDataWrapper);
+
+        // 最后删除用户本身
+        userMapper.deleteById(userId);
     }
 }

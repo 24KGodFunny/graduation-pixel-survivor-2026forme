@@ -160,7 +160,8 @@ com.pixelsurvivor
 │   ├── ranking/                      # 排行榜模块
 │   ├── character/                    # 用户角色状态模块
 │   ├── record/                       # 游戏记录模块
-│   └── recharge/                     # 充值模块
+│   ├── recharge/                     # 充值模块
+│   └── sync/                         # 数据同步模块
 └── interceptor/
     ├── JwtAuthFilter.java            # JWT认证过滤器
     └── RateLimitInterceptor.java     # 限流拦截器

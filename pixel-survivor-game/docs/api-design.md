@@ -822,172 +822,114 @@
 }
 ```
 
-### 6.3 商品管理
+### 6.3 用户管理
 
-> **说明**：管理端只管理商品的运营数据（价格、库存、上下架等），商品的游戏内容详情（名称、描述、图片、效果）由游戏客户端资源管理。
-
-#### GET /api/admin/items — 商品列表
+#### GET /api/admin/users — 用户列表（分页）
 
 **Headers**: `Authorization: Bearer {token}`
 
 **Query参数**：
-- `page`, `size`, `keyword`(按item_code搜索), `status`
+- `page` (可选): 页码，默认1
+- `size` (可选): 每页数量，默认20
 
-**响应**：
-```json
-{
-    "code": 200,
-    "data": {
-        "records": [
-            {
-                "id": 1,
-                "itemCode": "item_heal_potion",
-                "priceCoin": 100,
-                "priceDiamond": 0,
-                "stock": -1,
-                "maxBuyCount": -1,
-                "status": 1,
-                "sortOrder": 1,
-                "startTime": null,
-                "endTime": null
-            }
-        ],
-        "total": 10,
-        "page": 1,
-        "size": 10
-    }
-}
-```
-
-#### POST /api/admin/items — 新增商品
-
-**Headers**: `Authorization: Bearer {token}`
-
-**请求体**：
-```json
-{
-    "itemCode": "item_new_potion",
-    "priceCoin": 200,
-    "priceDiamond": 0,
-    "stock": -1,
-    "maxBuyCount": -1,
-    "status": 1,
-    "sortOrder": 11,
-    "startTime": null,
-    "endTime": null
-}
-```
-
-**说明**：`itemCode` 必须与游戏客户端 `shop_items.json` 中定义的物品ID一致。
-
-#### PUT /api/admin/items/{id} — 修改商品运营数据
-
-**Headers**: `Authorization: Bearer {token}`
-
-#### DELETE /api/admin/items/{id} — 删除商品
-
-**Headers**: `Authorization: Bearer {token}`
-
-#### PUT /api/admin/items/{id}/status — 上下架
-
-**Headers**: `Authorization: Bearer {token}`
-
-**请求体**：
-```json
-{
-    "status": 0
-}
-```
-
-### 6.4 用户管理
-
-#### GET /api/admin/users — 用户列表
+#### GET /api/admin/users/detail-by-username — 根据用户名查询用户详情
 
 **Headers**: `Authorization: Bearer {token}`
 
 **Query参数**：
-- `page`, `size`, `keyword`, `status`
+- `username`: 用户名
 
-#### GET /api/admin/users/{id} — 用户详情
+**响应**：返回用户基本信息、地图进度、游戏统计数据
 
-**Headers**: `Authorization: Bearer {token}`
-
-#### PUT /api/admin/users/{id}/status — 封禁/解封
+#### GET /api/admin/users/{userId}/detail — 根据用户ID查询用户详情
 
 **Headers**: `Authorization: Bearer {token}`
 
-**请求体**：
-```json
-{
-    "status": 0,
-    "reason": "违规行为"
-}
-```
+**响应**：返回用户基本信息、地图进度、游戏统计数据
 
-#### PUT /api/admin/users/{id}/currency — 调整用户货币
+#### PUT /api/admin/users/{userId} — 编辑用户信息
 
 **Headers**: `Authorization: Bearer {token}`
 
 **请求体**：
 ```json
 {
+    "nickname": "新昵称",
     "gameCoin": 1000,
     "diamond": 50,
-    "reason": "活动补偿"
+    "level": 5,
+    "exp": 2000,
+    "maxWave": 20,
+    "totalPlayTime": 3600
 }
 ```
 
-### 6.5 订单管理
-
-#### GET /api/admin/orders/purchase — 购买记录
+#### PUT /api/admin/users/{id}/ban — 封禁用户
 
 **Headers**: `Authorization: Bearer {token}`
 
-**Query参数**：
-- `page`, `size`, `userId`, `payType`, `startDate`, `endDate`
-
-#### GET /api/admin/orders/recharge — 充值记录
+#### PUT /api/admin/users/{id}/unban — 解封用户
 
 **Headers**: `Authorization: Bearer {token}`
 
-**Query参数**：
-- `page`, `size`, `userId`, `payChannel`, `startDate`, `endDate`
-
-#### GET /api/admin/orders/stats — 订单统计
-
-**Headers**: `Authorization: Bearer {token}`
-
-### 6.6 邮件管理
-
-#### GET /api/admin/mails — 邮件列表
-
-**Headers**: `Authorization: Bearer {token}`
-
-#### POST /api/admin/mails — 发送邮件
+#### PUT /api/admin/map-progress/{progressId} — 编辑地图进度
 
 **Headers**: `Authorization: Bearer {token}`
 
 **请求体**：
 ```json
 {
-    "userId": 0,
-    "title": "维护补偿",
-    "content": "感谢您的耐心等待，补偿100钻石！",
-    "mailType": 2,
-    "rewardType": "diamond",
-    "rewardValue": 100,
-    "rewardItemCode": null,
-    "expireDays": 30
+    "isUnlocked": 1,
+    "bestScore": 5000,
+    "bestWave": 20,
+    "clearCount": 3
 }
 ```
 
-**说明**：`userId` 为 0 表示全服邮件。`rewardItemCode` 为物品奖励时填写对应的游戏客户端资源ID。
-
-#### DELETE /api/admin/mails/{id} — 删除邮件
+#### DELETE /api/admin/users/{userId} — 删除用户及其所有关联数据
 
 **Headers**: `Authorization: Bearer {token}`
 
-### 6.7 操作日志
+### 6.4 管理员管理
+
+#### POST /api/admin/register — 注册新管理员
+
+**Headers**: `Authorization: Bearer {token}`
+
+**请求体**：
+```json
+{
+    "username": "newadmin",
+    "password": "123456",
+    "role": "ADMIN"
+}
+```
+
+#### GET /api/admin/admins — 管理员列表（分页）
+
+**Headers**: `Authorization: Bearer {token}`
+
+**Query参数**：
+- `page` (可选): 页码，默认1
+- `size` (可选): 每页数量，默认20
+
+#### DELETE /api/admin/admins/{id} — 删除管理员
+
+**Headers**: `Authorization: Bearer {token}`
+
+#### PUT /api/admin/password — 修改密码
+
+**Headers**: `Authorization: Bearer {token}`
+
+**请求体**：
+```json
+{
+    "oldPassword": "old123",
+    "newPassword": "new456"
+}
+```
+
+### 6.5 操作日志
 
 #### GET /api/admin/logs — 操作日志列表
 

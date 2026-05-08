@@ -15,17 +15,13 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>数据概览</span>
         </el-menu-item>
-        <el-menu-item index="/shop">
-          <el-icon><Goods /></el-icon>
-          <span>商品管理</span>
-        </el-menu-item>
         <el-menu-item index="/users">
           <el-icon><User /></el-icon>
           <span>用户管理</span>
         </el-menu-item>
-        <el-menu-item index="/user-items">
+        <el-menu-item index="/user-data">
           <el-icon><Box /></el-icon>
-          <span>用户背包</span>
+          <span>用户数据管理</span>
         </el-menu-item>
         <el-menu-item index="/logs">
           <el-icon><Document /></el-icon>

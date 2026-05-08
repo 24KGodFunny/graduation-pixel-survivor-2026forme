@@ -44,7 +44,11 @@ public class GameUserController {
         String password = params.get("password");
         String nickname = params.getOrDefault("nickname", username);
         User user = userService.register(username, password, nickname);
-        return Result.success("注册成功", user.getId());
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", user.getId());
+        data.put("username", user.getUsername());
+        data.put("nickname", user.getNickname());
+        return Result.success("注册成功", data);
     }
 
     @GetMapping("/info")

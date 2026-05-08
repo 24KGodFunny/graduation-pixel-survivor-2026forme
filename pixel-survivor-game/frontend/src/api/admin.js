@@ -22,23 +22,6 @@ export function getDailyStats(range) {
   return request.get('/dashboard/daily-stats', { params: { range } })
 }
 
-// ==================== 商品管理 ====================
-export function getShopItems(params) {
-  return request.get('/shop/items', { params })
-}
-
-export function addItem(data) {
-  return request.post('/shop/items', data)
-}
-
-export function updateItem(id, data) {
-  return request.put(`/shop/items/${id}`, data)
-}
-
-export function deleteItem(id) {
-  return request.delete(`/shop/items/${id}`)
-}
-
 // ==================== 用户管理 ====================
 export function getUsers(params) {
   return request.get('/users', { params })
@@ -50,11 +33,6 @@ export function banUser(id) {
 
 export function unbanUser(id) {
   return request.put(`/users/${id}/unban`)
-}
-
-// ==================== 用户背包管理 ====================
-export function getUserItems(params) {
-  return request.get('/user-items', { params })
 }
 
 // ==================== 管理员管理 ====================
@@ -69,4 +47,25 @@ export function deleteAdmin(id) {
 // ==================== 操作日志 ====================
 export function getLogs(params) {
   return request.get('/logs', { params })
+}
+
+// ==================== 用户数据管理 ====================
+export function deleteUser(userId) {
+  return request.delete(`/users/${userId}`)
+}
+
+export function getUserDetail(userId) {
+  return request.get(`/users/${userId}/detail`)
+}
+
+export function getUserDetailByUsername(username) {
+  return request.get('/users/detail-by-username', { params: { username } })
+}
+
+export function updateUser(userId, data) {
+  return request.put(`/users/${userId}`, data)
+}
+
+export function updateSaveData(userId, data) {
+  return request.put(`/users/${userId}/save-data`, data)
 }

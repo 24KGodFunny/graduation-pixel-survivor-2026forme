@@ -7,10 +7,7 @@ import com.pixelsurvivor.common.result.Result;
 import com.pixelsurvivor.common.util.JwtUtil;
 import com.pixelsurvivor.entity.*;
 import com.pixelsurvivor.entity.vo.DailyStatsVO;
-import com.pixelsurvivor.entity.vo.UserItemVO;
-import com.pixelsurvivor.mapper.UserItemMapper;
 import com.pixelsurvivor.service.AdminService;
-import com.pixelsurvivor.service.ShopItemService;
 import com.pixelsurvivor.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -32,10 +29,8 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
-    private final ShopItemService shopItemService;
     private final UserService userService;
     private final JwtUtil jwtUtil;
-    private final UserItemMapper userItemMapper;
 
     @PostMapping("/login")
     public Result<?> login(@RequestBody Map<String, String> params) {
@@ -83,38 +78,6 @@ public class AdminController {
         return Result.success(adminService.getDailyStats(range));
     }
 
-    // ========== 商品管理 ==========
-
-    @GetMapping("/shop/items")
-    public Result<IPage<ShopItem>> getItems(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String type) {
-        return Result.success(shopItemService.getShopItems(page, size, type));
-    }
-
-    @PostMapping("/shop/items")
-    @OperationLog(module = "商品管理", operation = "CREATE", description = "新增商品")
-    public Result<?> addItem(@RequestBody ShopItem item) {
-        shopItemService.save(item);
-        return Result.success("商品添加成功");
-    }
-
-    @PutMapping("/shop/items/{id}")
-    @OperationLog(module = "商品管理", operation = "UPDATE", description = "更新商品")
-    public Result<?> updateItem(@PathVariable Long id, @RequestBody ShopItem item) {
-        item.setId(id);
-        shopItemService.updateById(item);
-        return Result.success("商品更新成功");
-    }
-
-    @DeleteMapping("/shop/items/{id}")
-    @OperationLog(module = "商品管理", operation = "DELETE", description = "删除商品")
-    public Result<?> deleteItem(@PathVariable Long id) {
-        shopItemService.removeById(id);
-        return Result.success("商品删除成功");
-    }
-
     // ========== 用户管理 ==========
 
     @GetMapping("/users")
@@ -140,21 +103,6 @@ public class AdminController {
         user.setStatus(0);
         userService.updateById(user);
         return Result.success("用户已解封");
-    }
-
-    // ========== 用户背包管理 ==========
-
-    /**
-     * 查询用户背包物品（联表查询，支持按用户名/道具名搜索）
-     */
-    @GetMapping("/user-items")
-    public Result<IPage<UserItemVO>> getUserItems(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String itemName) {
-        Page<UserItemVO> pageParam = new Page<>(page, size);
-        return Result.success(userItemMapper.selectUserItemPage(pageParam, username, itemName));
     }
 
     // ========== 管理员管理 ==========
@@ -212,5 +160,54 @@ public class AdminController {
     @GetMapping("/dashboard/daily")
     public Result<List<DailyStatsVO>> getDaily(@RequestParam(defaultValue = "7d") String range) {
         return getDailyStats(range);   // 复用现有方法
+    }
+
+    // ==================== 用户数据管理 ====================
+
+    /**
+     * 根据用户名获取用户详情（含地图进度、游戏统计）
+     * 注意：此路径必须在 /users/{userId}/detail 之前，否则会被路径变量匹配
+     */
+    @GetMapping("/users/detail-by-username")
+    public Result<Map<String, Object>> getUserDetailByUsername(@RequestParam String username) {
+        return Result.success(adminService.getUserDetailByUsername(username));
+    }
+
+    /**
+     * 获取用户详情（含地图进度、游戏统计）
+     */
+    @GetMapping("/users/{userId}/detail")
+    public Result<Map<String, Object>> getUserDetail(@PathVariable Long userId) {
+        return Result.success(adminService.getUserDetail(userId));
+    }
+
+    /**
+     * 更新用户基本信息（昵称等，来自 t_user 表）
+     */
+    @PutMapping("/users/{userId}")
+    @OperationLog(module = "用户管理", operation = "UPDATE", description = "编辑用户信息")
+    public Result<Void> updateUser(@PathVariable Long userId, @RequestBody Map<String, Object> params) {
+        adminService.updateUser(userId, params);
+        return Result.success();
+    }
+
+    /**
+     * 更新用户存档数据（金币、钻石、角色、地图、成就等，操作 t_user_save_data 的 JSON）
+     */
+    @PutMapping("/users/{userId}/save-data")
+    @OperationLog(module = "用户管理", operation = "UPDATE", description = "编辑用户存档数据")
+    public Result<Void> updateSaveData(@PathVariable Long userId, @RequestBody Map<String, Object> params) {
+        adminService.updateSaveData(userId, params);
+        return Result.success();
+    }
+
+    /**
+     * 删除用户及其所有关联数据
+     */
+    @DeleteMapping("/users/{userId}")
+    @OperationLog(module = "用户管理", operation = "DELETE", description = "删除用户")
+    public Result<Void> deleteUser(@PathVariable Long userId) {
+        adminService.deleteUserCompletely(userId);
+        return Result.success();
     }
 }

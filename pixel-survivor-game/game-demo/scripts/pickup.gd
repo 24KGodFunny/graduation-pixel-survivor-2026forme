@@ -3,6 +3,7 @@ extends Area2D
 var pickup_type: String = "exp"
 var value: int = 1
 var magnetized: bool = false
+var absorbing: bool = false  # Set to true when boss is defeated, absorb all pickups
 var sprite: Sprite2D
 
 func _ready():
@@ -42,14 +43,22 @@ func _on_magnet_entered(body):
 	if body.is_in_group("player"):
 		magnetized = true
 
+func set_absorbing(_val: bool):
+	absorbing = true
+	magnetized = true
+
+func force_collect():
+	_collect()
+
 func _process(delta):
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
-	if magnetized:
+	if absorbing or magnetized:
 		var players = get_tree().get_nodes_in_group("player")
 		if players.size() > 0:
+			var speed = 1200.0 if absorbing else 600.0
 			var dir = (players[0].global_position - global_position).normalized()
-			position += dir * 600.0 * delta
+			position += dir * speed * delta
 			if global_position.distance_to(players[0].global_position) < 20:
 				_collect()
 

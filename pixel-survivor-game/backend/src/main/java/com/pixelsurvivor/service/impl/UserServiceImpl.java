@@ -6,14 +6,13 @@ import com.pixelsurvivor.common.constant.RedisConstant;
 import com.pixelsurvivor.common.exception.BusinessException;
 import com.pixelsurvivor.common.result.ResultCode;
 import com.pixelsurvivor.entity.User;
-import com.pixelsurvivor.entity.UserCharacter;
-import com.pixelsurvivor.mapper.UserCharacterMapper;
 import com.pixelsurvivor.mapper.UserMapper;
 import com.pixelsurvivor.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -32,7 +31,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final StringRedisTemplate redisTemplate;
     private final PasswordEncoder passwordEncoder;
-    private final UserCharacterMapper userCharacterMapper;
 
     @Override
     public User register(String username, String password, String nickname) {
@@ -46,7 +44,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
         user.setNickname(StringUtils.hasText(nickname) ? nickname : "像素冒险家");
-        user.setGameCoin(1000L);
+        user.setGameCoin(500L);
         user.setDiamond(50L);
         user.setLevel(1);
         user.setExp(0);
@@ -58,30 +56,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setUpdatedAt(LocalDateTime.now());
         this.save(user);
 
-        // 注册时写入两个初始角色：maphy(玛菲) 和 minami(美波)
-        createInitialCharacter(user.getId(), "maphy");
-        createInitialCharacter(user.getId(), "minami");
-
         return user;
-    }
-
-    /**
-     * 创建初始角色记录
-     */
-    private void createInitialCharacter(Long userId, String characterCode) {
-        UserCharacter uc = new UserCharacter();
-        uc.setUserId(userId);
-        uc.setCharacterCode(characterCode);
-        uc.setIsSelected(0);
-        uc.setLevel(1);
-        uc.setHpUpgrade(0);
-        uc.setAtkUpgrade(0);
-        uc.setDefUpgrade(0);
-        uc.setSpeedUpgrade(0);
-        uc.setCombatPower(0);
-        uc.setAcquiredAt(LocalDateTime.now());
-        uc.setUpdatedAt(LocalDateTime.now());
-        userCharacterMapper.insert(uc);
     }
 
     @Override
@@ -161,5 +136,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setIsOnline(isOnline);
         user.setUpdatedAt(LocalDateTime.now());
         return this.updateById(user);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUserCompletely(String username) {
+        // 1. 查找用户
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getUsername, username);
+        User user = this.getOne(wrapper);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        Long userId = user.getId();
+
+        // 2. 删除 user
+        this.removeById(userId);
+
+        // 3. 清除 Redis 缓存
+        redisTemplate.delete(RedisConstant.USER_INFO + userId);
     }
 }

@@ -18,22 +18,16 @@ const routes = [
         meta: { title: '数据概览' }
       },
       {
-        path: 'shop',
-        name: 'ShopManage',
-        component: () => import('../views/ShopManage.vue'),
-        meta: { title: '商品管理' }
-      },
-      {
         path: 'users',
         name: 'UserManage',
         component: () => import('../views/UserManage.vue'),
         meta: { title: '用户管理' }
       },
       {
-        path: 'user-items',
-        name: 'UserItemManage',
-        component: () => import('../views/UserItemManage.vue'),
-        meta: { title: '用户背包' }
+        path: 'user-data',
+        name: 'UserDataManage',
+        component: () => import('../views/UserDataManage.vue'),
+        meta: { title: '用户数据管理' }
       },
       {
         path: 'logs',

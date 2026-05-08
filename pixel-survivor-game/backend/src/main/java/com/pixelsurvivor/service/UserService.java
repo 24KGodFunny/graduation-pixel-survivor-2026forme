@@ -40,4 +40,9 @@ public interface UserService extends IService<User> {
      * 更新用户在线状态
      */
     boolean updateOnlineStatus(Long userId, Integer isOnline);
+
+    /**
+     * 根据用户名彻底删除用户（包括所有关联表数据）
+     */
+    void deleteUserCompletely(String username);
 }

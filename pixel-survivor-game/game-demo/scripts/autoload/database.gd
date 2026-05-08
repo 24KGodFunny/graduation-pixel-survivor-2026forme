@@ -88,6 +88,7 @@ var characters := {
 		"passive": "damage",
 		"color": Color(1.0, 0.15, 0.15),
 		"cost": 0,
+		"unlock_condition": "通关「公路」后解锁",
 	},
 	"kanna": {
 		"name": "栞那",
@@ -176,7 +177,7 @@ var characters := {
 	"mika": {
 		"name": "米卡",
 		"name_en": "Mika",
-		"description": "??? 隐藏角色 ??? 全属性均衡偏高",
+		"description": "全属性均衡偏高的高级角色",
 		"sprite": "res://assets/images/characters/player_mika.png",
 		"max_hp": 120,
 		"speed": 230.0,
@@ -192,7 +193,7 @@ var characters := {
 		"starting_weapon": "star",
 		"passive": "critical",
 		"color": Color(1.0, 0.3, 1.0),
-		"cost": 0,
+		"cost": 2000,
 	},
 }
 
@@ -795,8 +796,21 @@ var enemies := {
 # BOSS DATA
 # ============================================================
 var bosses := {
+	"butcher": {
+		"name": "血腥屠夫",
+		"sprite": "res://assets/images/bosses/boss_butcher.png",
+		"max_hp": 300,
+		"damage": 10,
+		"speed": 80.0,
+		"exp": 30,
+		"armor": 2,
+		"color": Color(0.8, 0.2, 0.2),
+		"phases": 1,
+		"coin_min": 30,
+		"coin_max": 50,
+	},
 	"sakura": {
-		"name": "樱 - 暴走形态",
+		"name": "樱",
 		"sprite": "res://assets/images/bosses/boss_sakura.png",
 		"max_hp": 500,
 		"damage": 15,
@@ -866,9 +880,27 @@ var bosses := {
 # MAP DATA
 # ============================================================
 var maps := {
+	"tutorial": {
+		"name": "废弃城市",
+		"description": "新手教学关卡，熟悉操作与战斗。默认解锁，通关后可解锁下一关卡。",
+		"tile": "res://assets/images/maps/tile_stone.png",
+		"bg_color": Color(0.25, 0.25, 0.28),
+		"size": Vector2(3000, 3000),
+		"enemy_types": ["brainless_basic"],
+		"boss": "butcher",
+		"spawn_rate_base": 3.5,
+		"spawn_rate_increase": 0.0,
+		"max_enemies": 50,
+		"time_limit": 180,
+		"normal_phase_duration": 180.0,
+		"exp_mult": 3.0,
+		"unlock_condition": "默认解锁",
+		"unlock_prerequisite": "",
+		"is_tutorial": true,
+	},
 	"endless_road": {
-		"name": "无尽之路",
-		"description": "标准地图，适合新手",
+		"name": "公路",
+		"description": "第一章主线关卡。生存5分钟后迎战Boss樱！通关后解锁角色「樱」。通关「废弃城市」后解锁。",
 		"tile": "res://assets/images/maps/tile_grass.png",
 		"bg_color": Color(0.31, 0.47, 0.24),
 		"size": Vector2(4000, 4000),
@@ -878,10 +910,12 @@ var maps := {
 		"spawn_rate_increase": 0.01,
 		"max_enemies": 200,
 		"time_limit": 900,
+		"unlock_condition": "通关「废弃城市」后解锁",
+		"unlock_prerequisite": "tutorial",
 	},
 	"wasteland": {
 		"name": "荒原",
-		"description": "困难地图，敌人更强",
+		"description": "第一章支线关卡。荒凉的沙漠中危机四伏，敌人更强更多。通关「公路」后解锁。",
 		"tile": "res://assets/images/maps/tile_sand.png",
 		"bg_color": Color(0.71, 0.63, 0.39),
 		"size": Vector2(5000, 5000),
@@ -891,10 +925,12 @@ var maps := {
 		"spawn_rate_increase": 0.015,
 		"max_enemies": 300,
 		"time_limit": 900,
+		"unlock_condition": "通关「公路」后解锁",
+		"unlock_prerequisite": "endless_road",
 	},
 	"crimson_forest": {
-		"name": "殷红森林",
-		"description": "终极地图，大量强敌",
+		"name": "森林",
+		"description": "第一章终极关卡。被鲜血染红的森林深处，大量强敌潜伏。通关「荒原」后解锁。",
 		"tile": "res://assets/images/maps/tile_forest.png",
 		"bg_color": Color(0.16, 0.31, 0.12),
 		"size": Vector2(6000, 6000),
@@ -904,6 +940,8 @@ var maps := {
 		"spawn_rate_increase": 0.02,
 		"max_enemies": 400,
 		"time_limit": 900,
+		"unlock_condition": "通关「荒原」后解锁",
+		"unlock_prerequisite": "wasteland",
 	},
 }
 
@@ -911,12 +949,24 @@ var maps := {
 # STORY / DIALOGUE DATA
 # ============================================================
 var story_dialogues := {
+	"tutorial_intro": [
+		{"speaker": "系统", "text": "欢迎来到废弃城市——新手训练场。"},
+		{"speaker": "系统", "text": "使用 WASD 或方向键移动角色。"},
+		{"speaker": "系统", "text": "武器会自动攻击靠近的敌人。"},
+		{"speaker": "系统", "text": "击杀敌人获取经验，升级后可选择新武器或道具。"},
+		{"speaker": "系统", "text": "存活3分钟后将迎来Boss战，击败Boss即可通关！"},
+		{"speaker": "系统", "text": "准备好了吗？祝你好运！"},
+	],
 	"intro": [
 		{"speaker": "系统", "text": "欢迎来到异世界前线！"},
 		{"speaker": "系统", "text": "在这个世界中，你需要生存下去。"},
 		{"speaker": "系统", "text": "使用WASD移动，武器会自动攻击。"},
 		{"speaker": "系统", "text": "击杀敌人获取经验，升级后选择新武器或道具。"},
 		{"speaker": "系统", "text": "祝你好运！"},
+	],
+	"boss_butcher": [
+		{"speaker": "血腥屠夫", "text": "嘎嘎嘎...新鲜的肉..."},
+		{"speaker": "血腥屠夫", "text": "让我来给你上一课吧！"},
 	],
 	"boss_sakura": [
 		{"speaker": "???", "text": "你终于来了..."},

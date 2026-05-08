@@ -94,17 +94,11 @@ func _build_ui():
 	buttons_container.visible = false
 	vbox.add_child(buttons_container)
 	
-	var continue_btn = Button.new()
-	continue_btn.text = "继续游戏"
-	continue_btn.custom_minimum_size = Vector2(140, 40)
-	continue_btn.pressed.connect(_on_continue)
-	buttons_container.add_child(continue_btn)
-	
-	var menu_btn = Button.new()
-	menu_btn.text = "返回主菜单"
-	menu_btn.custom_minimum_size = Vector2(140, 40)
-	menu_btn.pressed.connect(_on_return_menu)
-	buttons_container.add_child(menu_btn)
+	var confirm_btn = Button.new()
+	confirm_btn.text = "确认"
+	confirm_btn.custom_minimum_size = Vector2(180, 45)
+	confirm_btn.pressed.connect(_on_return_menu)
+	buttons_container.add_child(confirm_btn)
 
 func _add_stat_row(label_text: String, value_text: String, color: Color = Color.WHITE) -> Control:
 	var hbox = HBoxContainer.new()
@@ -227,10 +221,6 @@ func _process(delta):
 		else:
 			animation_done = true
 			buttons_container.visible = true
-
-func _on_continue():
-	# Continue playing (game is already won, just go back to scene)
-	queue_free()
 
 func _on_return_menu():
 	queue_free()

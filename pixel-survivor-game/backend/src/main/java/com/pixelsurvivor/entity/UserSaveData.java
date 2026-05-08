@@ -8,24 +8,22 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 好友请求实体
+ * 用户全局存档实体
+ * <p>将所有存档数据以 JSON 形式存储在一个字段中</p>
  */
 @Data
-@TableName("t_friend_request")
-public class FriendRequest {
+@TableName("t_user_save_data")
+public class UserSaveData {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Long fromUserId;
+    private Long userId;
 
-    private Long toUserId;
-
-    /** 申请消息 */
-    private String message;
-
-    /** 状态: 0待处理 1同意 2拒绝 */
-    private Integer status;
+    /**
+     * 存档JSON数据（包含角色、地图、成就、金币、钻石等全部状态）
+     */
+    private String saveData;
 
     private LocalDateTime createdAt;
 

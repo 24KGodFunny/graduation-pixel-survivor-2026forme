@@ -64,4 +64,29 @@ public interface AdminService extends IService<Admin> {
      * 获取仪表盘概览数据
      */
     Map<String, Object> getDashboardOverview();
+
+    /**
+     * 获取用户详情（含地图进度）
+     */
+    Map<String, Object> getUserDetail(Long userId);
+
+    /**
+     * 根据用户名获取用户详情（含地图进度、游戏统计、背包物品）
+     */
+    Map<String, Object> getUserDetailByUsername(String username);
+
+    /**
+     * 更新用户基本信息（昵称等，来自 t_user 表）
+     */
+    void updateUser(Long userId, Map<String, Object> params);
+
+    /**
+     * 更新用户存档数据（金币、钻石、角色、地图、成就等，操作 t_user_save_data 的 JSON）
+     */
+    void updateSaveData(Long userId, Map<String, Object> params);
+
+    /**
+     * 删除用户及其所有关联数据
+     */
+    void deleteUserCompletely(Long userId);
 }

@@ -1,12 +1,12 @@
 package com.pixelsurvivor.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.pixelsurvivor.entity.Ranking;
+import com.pixelsurvivor.entity.UserSaveData;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 排行榜Mapper
+ * 用户全局存档 Mapper
  */
 @Mapper
-public interface RankingMapper extends BaseMapper<Ranking> {
+public interface UserSaveDataMapper extends BaseMapper<UserSaveData> {
 }

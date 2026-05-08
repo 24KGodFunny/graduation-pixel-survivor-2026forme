@@ -33,17 +33,6 @@ t_shop_item (商品)
   ├── 1:N → t_user_item (背包)
   └── 1:N → t_purchase_record (购买记录)
 
-t_character (角色)
-  └── 1:N → t_user_character (用户角色)
-
-t_achievement (成就定义)
-  └── 1:N → t_user_achievement (用户成就)
-
-t_daily_task (任务定义)
-  └── 1:N → t_user_daily_task (用户任务)
-
-t_buff_definition (Buff定义)
-t_map (地图)
 ```
 
 ## 3. 表结构详细设计
@@ -247,55 +236,40 @@ t_map (地图)
 
 ---
 
-### 3.10 t_character — 角色表
+### 3.10 t_user_character — 用户角色表
 
-| 字段 | 类型 | 约束 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | - | 角色ID |
-| name | VARCHAR(50) | NOT NULL | - | 角色名 |
-| description | TEXT | - | NULL | 角色描述 |
-| sprite_url | VARCHAR(255) | - | NULL | 角色立绘 |
-| base_hp | INT | - | 100 | 基础生命 |
-| base_atk | INT | - | 10 | 基础攻击 |
-| base_def | INT | - | 5 | 基础防御 |
-| base_speed | FLOAT | - | 150.0 | 基础移速 |
-| special_ability | VARCHAR(200) | - | NULL | 特殊技能描述 |
-| unlock_type | TINYINT | - | 0 | 0默认 1等级 2钻石 3成就 |
-| unlock_value | INT | - | 0 | 解锁条件值 |
-| price_diamond | INT | - | 0 | 钻石价格 |
-| status | TINYINT | - | 1 | 1正常 0禁用 |
-| created_at | DATETIME | - | CURRENT_TIMESTAMP | 创建时间 |
-
----
-
-### 3.11 t_user_character — 用户角色表
+> 角色定义由游戏客户端资源 `characters.json` 管理，数据库只记录用户的角色解锁状态和强化数据。
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | - | 主键 |
-| user_id | BIGINT | FK → t_user.id, NOT NULL | - | 用户ID |
-| character_id | BIGINT | FK → t_character.id, NOT NULL | - | 角色ID |
+| user_id | BIGINT | NOT NULL | - | 用户ID |
+| character_code | VARCHAR(50) | NOT NULL | - | 角色编码，对应游戏客户端资源ID |
 | is_selected | TINYINT | - | 0 | 是否当前选用 |
 | level | INT | - | 1 | 角色等级 |
 | hp_upgrade | INT | - | 0 | 生命强化次数 |
 | atk_upgrade | INT | - | 0 | 攻击强化次数 |
 | def_upgrade | INT | - | 0 | 防御强化次数 |
 | speed_upgrade | INT | - | 0 | 移速强化次数 |
+| combat_power | INT | - | 0 | 战力 |
 | acquired_at | DATETIME | - | CURRENT_TIMESTAMP | 获取时间 |
 
 **索引**：
-- `uk_user_char` UNIQUE ON (user_id, character_id)
+- `uk_user_char` UNIQUE ON (user_id, character_code)
 
 ---
 
-### 3.12 t_game_record — 游戏局记录表
+### 3.11 t_game_record — 游戏局记录表
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | - | 记录ID |
-| user_id | BIGINT | FK → t_user.id, NOT NULL | - | 用户ID |
-| character_id | BIGINT | FK → t_character.id | NULL | 使用角色 |
-| map_id | INT | - | NULL | 地图ID |
+| user_id | BIGINT | NOT NULL | - | 用户ID |
+| character_code | VARCHAR(50) | - | NULL | 角色编码 |
+| map_code | VARCHAR(50) | - | NULL | 地图编码 |
+| chapter | INT | - | 1 | 章节1-3 |
+| game_level | INT | - | 1 | 关卡1-6 |
+| is_endless | TINYINT | - | 0 | 是否无尽模式 |
 | wave_reached | INT | - | 0 | 到达波数 |
 | kill_count | INT | - | 0 | 击杀数 |
 | boss_kill_count | INT | - | 0 | Boss击杀数 |
@@ -316,54 +290,27 @@ t_map (地图)
 
 ---
 
-### 3.13 t_achievement — 成就定义表
+### 3.12 t_user_achievement — 用户成就进度表
 
-| 字段 | 类型 | 约束 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | - | 成就ID |
-| name | VARCHAR(100) | NOT NULL | - | 成就名称 |
-| description | TEXT | - | NULL | 成就描述 |
-| icon_url | VARCHAR(255) | - | NULL | 图标 |
-| category | TINYINT | - | NULL | 1击杀 2通关 3收集 4等级 5特殊 |
-| condition_type | VARCHAR(50) | NOT NULL | - | 条件类型 |
-| condition_value | INT | NOT NULL | - | 条件值 |
-| reward_type | VARCHAR(20) | - | NULL | coin/diamond/item |
-| reward_value | INT | - | NULL | 奖励数值 |
-| reward_item_id | BIGINT | - | NULL | 奖励道具ID |
-| sort_order | INT | - | 0 | 排序 |
-| created_at | DATETIME | - | CURRENT_TIMESTAMP | 创建时间 |
-
-**condition_type 枚举值**：
-- `total_kill` — 累计击杀数
-- `total_clear` — 累计通关数
-- `total_play` — 累计游戏次数
-- `max_wave` — 最高波数
-- `collect_item` — 收集道具种类数
-- `reach_level` — 达到等级
-- `no_item_clear` — 不使用道具通关
-- `full_hp_clear` — 满血通关
-
----
-
-### 3.14 t_user_achievement — 用户成就进度表
+> 成就定义由游戏客户端资源 `achievements.json` 管理，数据库只记录用户的成就进度和领取状态。
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | - | 主键 |
-| user_id | BIGINT | FK → t_user.id, NOT NULL | - | 用户ID |
-| achievement_id | BIGINT | FK → t_achievement.id, NOT NULL | - | 成就ID |
+| user_id | BIGINT | NOT NULL | - | 用户ID |
+| achievement_code | VARCHAR(50) | NOT NULL | - | 成就编码，对应游戏客户端资源ID |
 | progress | INT | - | 0 | 当前进度 |
 | is_completed | TINYINT | - | 0 | 是否完成 |
 | is_rewarded | TINYINT | - | 0 | 是否已领奖 |
 | completed_at | DATETIME | - | NULL | 完成时间 |
 
 **索引**：
-- `uk_user_ach` UNIQUE ON (user_id, achievement_id)
+- `uk_user_ach` UNIQUE ON (user_id, achievement_code)
 - `idx_user_id` ON (user_id)
 
 ---
 
-### 3.15 t_daily_sign — 每日签到表
+### 3.13 t_daily_sign — 每日签到表
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
@@ -381,48 +328,27 @@ t_map (地图)
 
 ---
 
-### 3.16 t_daily_task — 每日任务定义表
+### 3.14 t_user_daily_task — 用户每日任务进度表
 
-| 字段 | 类型 | 约束 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | - | 任务ID |
-| name | VARCHAR(100) | NOT NULL | - | 任务名称 |
-| description | TEXT | - | NULL | 任务描述 |
-| task_type | VARCHAR(50) | NOT NULL | - | 任务类型 |
-| target_value | INT | NOT NULL | - | 目标值 |
-| reward_type | VARCHAR(20) | - | NULL | coin/diamond/exp |
-| reward_value | INT | - | NULL | 奖励数值 |
-| is_active | TINYINT | - | 1 | 是否启用 |
-| created_at | DATETIME | - | CURRENT_TIMESTAMP | 创建时间 |
-
-**task_type 枚举值**：
-- `play_game` — 进行N局游戏
-- `kill_enemy` — 击杀N个敌人
-- `clear_stage` — 通关N次
-- `use_item` — 使用N个道具
-- `reach_wave` — 到达第N波
-
----
-
-### 3.17 t_user_daily_task — 用户每日任务进度表
+> 任务定义由游戏客户端资源 `daily_tasks.json` 管理，数据库只记录用户的任务进度和领取状态。
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | - | 主键 |
-| user_id | BIGINT | FK → t_user.id, NOT NULL | - | 用户ID |
-| task_id | BIGINT | FK → t_daily_task.id, NOT NULL | - | 任务ID |
+| user_id | BIGINT | NOT NULL | - | 用户ID |
+| task_code | VARCHAR(50) | NOT NULL | - | 任务编码，对应游戏客户端资源ID |
 | task_date | DATE | NOT NULL | - | 任务日期 |
 | progress | INT | - | 0 | 当前进度 |
 | is_completed | TINYINT | - | 0 | 是否完成 |
 | is_rewarded | TINYINT | - | 0 | 是否已领奖 |
 
 **索引**：
-- `uk_user_task_date` UNIQUE ON (user_id, task_id, task_date)
+- `uk_user_task_date` UNIQUE ON (user_id, task_code, task_date)
 - `idx_user_date` ON (user_id, task_date)
 
 ---
 
-### 3.18 t_mail — 邮件表
+### 3.15 t_mail — 邮件表
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
@@ -445,7 +371,7 @@ t_map (地图)
 
 ---
 
-### 3.19 t_ranking — 排行榜表
+### 3.16 t_ranking — 排行榜表
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
@@ -465,55 +391,6 @@ t_map (地图)
 
 ---
 
-### 3.20 t_buff_definition — Buff定义表
-
-| 字段 | 类型 | 约束 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | - | Buff ID |
-| name | VARCHAR(50) | NOT NULL | - | Buff名称 |
-| description | TEXT | - | NULL | 描述 |
-| icon_url | VARCHAR(255) | - | NULL | 图标 |
-| buff_type | VARCHAR(50) | NOT NULL | - | 类型 |
-| value_type | TINYINT | - | 1 | 1百分比 2固定值 |
-| value | FLOAT | NOT NULL | - | 数值 |
-| rarity | TINYINT | - | 1 | 1普通 2稀有 3史诗 4传说 |
-| max_stack | INT | - | 1 | 最大叠加层数 |
-| is_active | TINYINT | - | 1 | 是否启用 |
-| created_at | DATETIME | - | CURRENT_TIMESTAMP | 创建时间 |
-
-**buff_type 枚举值**：
-- `atk_up` — 攻击力提升
-- `atk_speed_up` — 攻速提升
-- `speed_up` — 移速提升
-- `hp_up` — 生命上限提升
-- `hp_regen` — 生命恢复
-- `crit_rate_up` — 暴击率提升
-- `crit_dmg_up` — 暴击伤害提升
-- `def_up` — 防御提升
-- `aoe` — 范围伤害
-- `pierce` — 穿透
-- `multi_shot` — 多重射击
-- `magnet` — 拾取范围增大
-
----
-
-### 3.21 t_map — 地图/关卡表
-
-| 字段 | 类型 | 约束 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | - | 地图ID |
-| name | VARCHAR(100) | NOT NULL | - | 地图名 |
-| description | TEXT | - | NULL | 描述 |
-| difficulty | TINYINT | - | 1 | 难度1-5 |
-| max_wave | INT | - | 30 | 总波数 |
-| boss_wave_interval | INT | - | 10 | Boss出现间隔波数 |
-| unlock_type | TINYINT | - | 0 | 0默认 1等级 2通关前置 |
-| unlock_value | INT | - | 0 | 解锁条件值 |
-| background_url | VARCHAR(255) | - | NULL | 背景图 |
-| status | TINYINT | - | 1 | 1正常 0禁用 |
-| sort_order | INT | - | 0 | 排序 |
-| created_at | DATETIME | - | CURRENT_TIMESTAMP | 创建时间 |
-
 ---
 
 ## 4. 表关系汇总
@@ -524,10 +401,10 @@ t_map (地图)
 | t_user → t_purchase_record | 1:N | 用户有多条购买记录 |
 | t_user → t_recharge_record | 1:N | 用户有多条充值记录 |
 | t_user → t_game_record | 1:N | 用户有多局游戏记录 |
-| t_user → t_user_character | 1:N | 用户拥有多个角色 |
-| t_user → t_user_achievement | 1:N | 用户有多个成就进度 |
+| t_user → t_user_character | 1:N | 用户拥有多个角色（角色编码关联客户端资源） |
+| t_user → t_user_achievement | 1:N | 用户有多个成就进度（成就编码关联客户端资源） |
 | t_user → t_daily_sign | 1:N | 用户有多条签到记录 |
-| t_user → t_user_daily_task | 1:N | 用户有多条任务进度 |
+| t_user → t_user_daily_task | 1:N | 用户有多条任务进度（任务编码关联客户端资源） |
 | t_user → t_mail | 1:N | 用户有多封邮件 |
 | t_user → t_ranking | 1:N | 用户有多条排行记录 |
 | t_user ↔ t_user (t_friend) | N:N | 好友关系 |
@@ -535,9 +412,6 @@ t_map (地图)
 | t_admin → t_admin_operation_log | 1:N | 管理员操作日志 |
 | t_shop_item → t_user_item | 1:N | 商品在多个用户背包中 |
 | t_shop_item → t_purchase_record | 1:N | 商品有多条购买记录 |
-| t_character → t_user_character | 1:N | 角色被多个用户拥有 |
-| t_achievement → t_user_achievement | 1:N | 成就有多个用户进度 |
-| t_daily_task → t_user_daily_task | 1:N | 任务有多个用户进度 |
 
 ---
 

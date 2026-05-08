@@ -180,7 +180,7 @@ func _update_char_detail():
 	
 	# --- Right: Portrait panel (vertical rectangle) ---
 	var portrait_panel = PanelContainer.new()
-	portrait_panel.custom_minimum_size = Vector2(180, 320)
+	portrait_panel.custom_minimum_size = Vector2(280, 420)
 	var portrait_style = StyleBoxFlat.new()
 	portrait_style.bg_color = Color(0.12, 0.1, 0.18, 0.8)
 	portrait_style.border_color = Color(0.5, 0.3, 0.6)
@@ -205,8 +205,8 @@ func _update_char_detail():
 	
 	# Character sprite
 	var sprite_rect = TextureRect.new()
-	sprite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sprite_rect.custom_minimum_size = Vector2(140, 200)
+	sprite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	sprite_rect.custom_minimum_size = Vector2(240, 380)
 	sprite_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var sprite_path = char_data.get("sprite", "")
 	if sprite_path != "" and ResourceLoader.exists(sprite_path):
@@ -236,7 +236,7 @@ func _update_char_detail():
 		else:
 			var cost = Database.get_character_level_up_cost(char_level)
 			upgrade_btn.text = "升级 (%d 金币)" % cost
-			if SaveManager.gold >= cost:
+			if SaveManager.get_coins() >= cost:
 				upgrade_btn.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
 			else:
 				upgrade_btn.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
@@ -275,10 +275,11 @@ func _update_char_detail():
 			start_btn.pressed.connect(_on_start_button_pressed)
 	else:
 		var cost = char_data.get("cost", 0)
+		var unlock_cond = char_data.get("unlock_condition", "")
 		if cost > 0:
 			start_btn.visible = true
 			start_btn.text = "购买 (%d 金币)" % cost
-			if SaveManager.gold >= cost:
+			if SaveManager.get_coins() >= cost:
 				start_btn.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
 			else:
 				start_btn.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
@@ -287,6 +288,22 @@ func _update_char_detail():
 				start_btn.pressed.disconnect(_on_start_button_pressed)
 			if not start_btn.pressed.is_connected(_on_buy_character_pressed):
 				start_btn.pressed.connect(_on_buy_character_pressed)
+		elif unlock_cond != "":
+			start_btn.visible = true
+			start_btn.text = "未解锁"
+			start_btn.disabled = true
+			start_btn.add_theme_color_override("font_disabled_color", Color(0.6, 0.6, 0.6))
+			# Disconnect signals
+			if start_btn.pressed.is_connected(_on_start_button_pressed):
+				start_btn.pressed.disconnect(_on_start_button_pressed)
+			if start_btn.pressed.is_connected(_on_buy_character_pressed):
+				start_btn.pressed.disconnect(_on_buy_character_pressed)
+			var unlock_info = Label.new()
+			unlock_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			unlock_info.add_theme_font_size_override("font_size", 13)
+			unlock_info.text = "🔒 %s" % unlock_cond
+			unlock_info.add_theme_color_override("font_color", Color(0.9, 0.75, 0.2))
+			btn_container.add_child(unlock_info)
 		else:
 			start_btn.visible = false
 			var unlock_info = Label.new()
@@ -299,10 +316,9 @@ func _update_char_detail():
 func _on_upgrade_pressed():
 	if selected_char_id == "":
 		return
-	if SaveManager.upgrade_character(selected_char_id):
-		_update_gold_display()
-		_update_char_detail()
-		# Refresh list in case of visual update
+	SaveManager.upgrade_character(selected_char_id)
+	_update_gold_display()
+	_update_char_detail()
 
 func _on_buy_character_pressed():
 	if selected_char_id == "" or not Database.characters.has(selected_char_id):
@@ -311,18 +327,18 @@ func _on_buy_character_pressed():
 	var cost = char_data.get("cost", 0)
 	if cost <= 0:
 		return
-	if SaveManager.gold < cost:
+	if SaveManager.get_coins() < cost:
 		# Show insufficient gold dialog
 		var dialog = AcceptDialog.new()
 		dialog.title = "金币不足"
-		dialog.dialog_text = "需要 %d 金币解锁 %s\n当前金币: %d" % [cost, char_data["name"], SaveManager.gold]
+		dialog.dialog_text = "需要 %d 金币解锁 %s\n当前金币: %d" % [cost, char_data["name"], SaveManager.get_coins()]
 		dialog.ok_button_text = "确定"
 		add_child(dialog)
 		dialog.popup_centered(Vector2i(300, 120))
 		dialog.confirmed.connect(func(): dialog.queue_free())
 		return
 	# Sufficient gold - unlock character
-	SaveManager.spend_gold(cost)
+	SaveManager.spend_coins(cost)
 	SaveManager.unlock_character(selected_char_id)
 	_populate_characters()
 	_update_gold_display()
@@ -335,7 +351,7 @@ func _on_buy_character_pressed():
 
 func _update_gold_display():
 	if gold_label:
-		gold_label.text = "💰 %d" % SaveManager.gold
+		gold_label.text = "💰 %d" % SaveManager.get_coins()
 
 func _on_start_button_pressed():
 	if selected_char_id == "":
@@ -345,7 +361,7 @@ func _on_start_button_pressed():
 
 func _update_diamond_display():
 	if diamond_label:
-		diamond_label.text = "💎 0"
+		diamond_label.text = "💎 %d" % SaveManager.get_diamonds()
 
 func _update_login_display():
 	if login_btn:
@@ -372,25 +388,24 @@ func _on_sync_upload_button_pressed():
 		dialog.popup_centered(Vector2i(280, 100))
 		dialog.confirmed.connect(func(): dialog.queue_free())
 		return
-	var data = SaveManager.prepare_upload_data()
-	NetworkManager.sync_upload(data)
+	NetworkManager.sync_upload()
 	sync_upload_btn.disabled = true
 	sync_upload_btn.text = "上传中..."
 
 func _on_sync_download_button_pressed():
 	if not NetworkManager.is_logged_in:
-		var dialog = AcceptDialog.new()
-		dialog.title = "提示"
-		dialog.dialog_text = "请先登录后再下载存档"
-		dialog.ok_button_text = "确定"
-		add_child(dialog)
-		dialog.popup_centered(Vector2i(280, 100))
-		dialog.confirmed.connect(func(): dialog.queue_free())
+		var warn_dialog = AcceptDialog.new()
+		warn_dialog.title = "提示"
+		warn_dialog.dialog_text = "请先登录后再下载存档"
+		warn_dialog.ok_button_text = "确定"
+		add_child(warn_dialog)
+		warn_dialog.popup_centered(Vector2i(280, 100))
+		warn_dialog.confirmed.connect(func(): warn_dialog.queue_free())
 		return
 	# 确认覆盖
 	var dialog = ConfirmationDialog.new()
 	dialog.title = "下载存档"
-	dialog.dialog_text = "下载服务器存档将与本地数据合并（取并集/最大值），是否继续？"
+	dialog.dialog_text = "下载服务器存档将覆盖本地存档数据，是否继续？"
 	dialog.ok_button_text = "确认下载"
 	dialog.cancel_button_text = "取消"
 	add_child(dialog)
@@ -427,10 +442,10 @@ func _on_sync_upload_failed(error: String):
 	dialog.popup_centered(Vector2i(300, 100))
 	dialog.confirmed.connect(func(): dialog.queue_free())
 
-func _on_sync_download_success(data: Dictionary):
+func _on_sync_download_success(_data: Dictionary):
 	sync_download_btn.disabled = false
 	sync_download_btn.text = "下载存档"
-	SaveManager.apply_download_data(data)
+	# NetworkManager 已将 saveData 应用到 GlobalSave，这里只需刷新 UI
 	_populate_characters()
 	_update_gold_display()
 	_update_diamond_display()
@@ -438,7 +453,7 @@ func _on_sync_download_success(data: Dictionary):
 		_update_char_detail()
 	var dialog = AcceptDialog.new()
 	dialog.title = "下载成功"
-	dialog.dialog_text = "服务器存档已合并到本地！\n金币: %d\n钻石: %d" % [SaveManager.gold, SaveManager.diamond]
+	dialog.dialog_text = "服务器存档已同步到本地！\n金币: %d\n钻石: %d" % [SaveManager.get_coins(), SaveManager.get_diamonds()]
 	dialog.ok_button_text = "确定"
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(300, 120))

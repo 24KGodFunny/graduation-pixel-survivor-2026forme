@@ -71,6 +71,6 @@ func _process(delta):
 
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		get_tree().change_scene_to_file("res://scenes/title_screen.tscn")
 	elif event is InputEventKey and event.pressed:
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		get_tree().change_scene_to_file("res://scenes/title_screen.tscn")

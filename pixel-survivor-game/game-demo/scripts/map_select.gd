@@ -9,10 +9,18 @@ var boss_label: Label
 var enemy_label: Label
 var time_label: Label
 var best_label: Label
+var start_btn: Button
+var unlock_label: Label
 
 func _ready():
 	_build_ui()
-	_on_map_selected("endless_road")
+	# Default select first unlocked map
+	var first_map = "tutorial"
+	for mid in Database.maps:
+		if SaveManager.is_map_unlocked(mid):
+			first_map = mid
+			break
+	_on_map_selected(first_map)
 
 func _build_ui():
 	# Background
@@ -92,8 +100,12 @@ func _build_ui():
 		var m = Database.maps[mid]
 		var btn = Button.new()
 		var is_unlocked = SaveManager.is_map_unlocked(mid)
+		var is_tutorial = m.get("is_tutorial", false)
 		if is_unlocked:
-			btn.text = m["name"]
+			if is_tutorial:
+				btn.text = "🎓 %s" % m["name"]
+			else:
+				btn.text = m["name"]
 		else:
 			btn.text = "%s 🔒" % m["name"]
 			btn.modulate = Color(0.5, 0.5, 0.5)
@@ -128,6 +140,14 @@ func _build_ui():
 	map_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right_panel.add_child(map_desc_label)
 	
+	# Unlock condition label
+	unlock_label = Label.new()
+	unlock_label.text = ""
+	unlock_label.add_theme_font_size_override("font_size", 13)
+	unlock_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	unlock_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	right_panel.add_child(unlock_label)
+	
 	# Info panel
 	var info_panel = PanelContainer.new()
 	right_panel.add_child(info_panel)
@@ -161,7 +181,7 @@ func _build_ui():
 	right_panel.add_child(spacer2)
 	
 	# Start button
-	var start_btn = Button.new()
+	start_btn = Button.new()
 	start_btn.text = "▶ 开始游戏"
 	start_btn.custom_minimum_size = Vector2(200, 50)
 	start_btn.add_theme_font_size_override("font_size", 18)
@@ -198,11 +218,39 @@ func _on_map_selected(map_id: String):
 	time_label.text = "⏱ 时间限制: %d 秒" % m["time_limit"]
 	
 	# Best score
-	var best = SaveManager.get_best_score(map_id)
-	if best > 0:
-		best_label.text = "🏆 最佳成绩: %d" % best
+	var is_tutorial = m.get("is_tutorial", false)
+	if is_tutorial:
+		best_label.text = "📝 教学关卡（不计成绩）"
 	else:
-		best_label.text = "🏆 最佳成绩: 暂无"
+		var best = SaveManager.get_best_score(map_id)
+		if best > 0:
+			best_label.text = "🏆 最佳成绩: %d" % best
+		else:
+			best_label.text = "🏆 最佳成绩: 暂无"
+	
+	# Update unlock condition display
+	var is_unlocked = SaveManager.is_map_unlocked(map_id)
+	var unlock_cond = m.get("unlock_condition", "")
+	if is_unlocked:
+		if SaveManager.is_map_completed(map_id):
+			unlock_label.text = "✅ 状态：已通关"
+			unlock_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+		else:
+			unlock_label.text = "🔓 状态：已解锁"
+			unlock_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
+	else:
+		unlock_label.text = "🔒 解锁条件：%s" % unlock_cond
+		unlock_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	
+	# Update start button state
+	if is_unlocked:
+		start_btn.text = "▶ 开始游戏"
+		start_btn.disabled = false
+		start_btn.modulate = Color.WHITE
+	else:
+		start_btn.text = "🔒 未解锁"
+		start_btn.disabled = true
+		start_btn.modulate = Color(0.5, 0.5, 0.5)
 
 func _on_start():
 	if not SaveManager.is_map_unlocked(selected_map_id):

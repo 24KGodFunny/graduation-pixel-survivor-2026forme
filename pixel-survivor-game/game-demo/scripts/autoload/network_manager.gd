@@ -21,6 +21,11 @@ var user_id: int = 0
 var nickname: String = ""
 var username: String = ""
 
+# 当前请求类型（用于区分错误信号路由）
+var _pending_request: String = ""
+# 当前同步请求类型（用于区分上传/下载的错误信号路由）
+var _pending_sync_request: String = ""
+
 # HTTP 请求节点
 var http_request: HTTPRequest
 var sync_http_request: HTTPRequest
@@ -40,6 +45,7 @@ func _ready():
 
 # 登录请求
 func login(user: String, pwd: String):
+	_pending_request = "login"
 	username = user
 	var url = API_BASE_URL + "/api/game/user/login"
 	var headers = ["Content-Type: application/json"]
@@ -54,6 +60,7 @@ func login(user: String, pwd: String):
 
 # 注册请求
 func register(user: String, pwd: String, nick: String):
+	_pending_request = "register"
 	var url = API_BASE_URL + "/api/game/user/register"
 	var headers = ["Content-Type: application/json"]
 	var body = JSON.stringify({
@@ -70,7 +77,7 @@ func register(user: String, pwd: String, nick: String):
 func get_user_info():
 	if token == "":
 		return
-	
+	_pending_request = "user_info"
 	var url = API_BASE_URL + "/api/game/user/info"
 	var headers = [
 		"Content-Type: application/json",
@@ -109,53 +116,81 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 func _handle_success_response(response: Dictionary):
 	var data = response.get("data", {})
 	
-	# 判断是登录、注册还是用户信息响应
-	if data.has("token"):
+	# 根据请求类型处理响应
+	if _pending_request == "login":
 		# 登录成功
-		token = data.get("token", "")
-		user_id = data.get("userId", 0)
-		nickname = data.get("nickname", "")
-		is_logged_in = true
-		SaveManager.save_login_data(token, user_id, nickname, username)
-		login_success.emit(data)
-	elif data.has("id") and data.has("username"):
-		# 用户信息
-		user_info_received.emit(data)
-	elif response.has("message") and response["message"] == "注册成功":
+		if data is Dictionary:
+			token = data.get("token", "")
+			user_id = data.get("userId", 0)
+			nickname = data.get("nickname", "")
+			is_logged_in = true
+			SaveManager.save_login_data(token, user_id, nickname, username)
+			login_success.emit(data)
+		else:
+			login_failed.emit("登录响应格式错误")
+	elif _pending_request == "register":
 		# 注册成功
-		register_success.emit(data)
+		register_success.emit(data if data is Dictionary else {})
+	elif _pending_request == "user_info":
+		# 用户信息
+		if data is Dictionary:
+			user_info_received.emit(data)
+		else:
+			print("用户信息响应格式错误")
 	else:
-		# 通用成功
-		if not is_logged_in:
-			register_success.emit(data)
+		# 未知请求类型，尝试自动判断
+		if data is Dictionary and data.has("token"):
+			token = data.get("token", "")
+			user_id = data.get("userId", 0)
+			nickname = data.get("nickname", "")
+			is_logged_in = true
+			SaveManager.save_login_data(token, user_id, nickname, username)
+			login_success.emit(data)
+		else:
+			register_success.emit(data if data is Dictionary else {})
+	_pending_request = ""
 
 # 处理错误
 func _handle_error(error_msg: String):
-	if not is_logged_in:
+	if _pending_request == "register":
+		register_failed.emit(error_msg)
+	elif _pending_request == "login":
 		login_failed.emit(error_msg)
+	elif _pending_request == "user_info":
+		print("获取用户信息失败: ", error_msg)
 	else:
-		print("网络错误: ", error_msg)
+		if not is_logged_in:
+			login_failed.emit(error_msg)
+		else:
+			print("网络错误: ", error_msg)
+	_pending_request = ""
 
-# 上传本地数据到服务器
-func sync_upload(data: Dictionary):
+# 上传本地数据到服务器（从 GlobalSave 获取数据）
+func sync_upload():
 	if token == "":
 		sync_upload_failed.emit("未登录")
 		return
+	_pending_sync_request = "upload"
 	var url = API_BASE_URL + "/api/game/sync/upload"
 	var headers = [
 		"Content-Type: application/json",
 		"Authorization: Bearer " + token
 	]
-	var body = JSON.stringify(data)
+	var upload_data = {
+		"saveData": GlobalSave.to_dict()
+	}
+	var body = JSON.stringify(upload_data)
 	var error = sync_http_request.request(url, headers, HTTPClient.METHOD_POST, body)
 	if error != OK:
 		sync_upload_failed.emit("请求发送失败")
+		_pending_sync_request = ""
 
 # 从服务器下载数据
 func sync_download():
 	if token == "":
 		sync_download_failed.emit("未登录")
 		return
+	_pending_sync_request = "download"
 	var url = API_BASE_URL + "/api/game/sync/download"
 	var headers = [
 		"Content-Type: application/json",
@@ -164,33 +199,48 @@ func sync_download():
 	var error = sync_http_request.request(url, headers, HTTPClient.METHOD_POST, "")
 	if error != OK:
 		sync_download_failed.emit("请求发送失败")
+		_pending_sync_request = ""
 
 # 处理同步请求完成
 func _on_sync_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	if result != HTTPRequest.RESULT_SUCCESS:
-		sync_upload_failed.emit("网络请求失败")
+		_emit_sync_error("网络请求失败")
 		return
 	var json = JSON.new()
 	var error = json.parse(body.get_string_from_utf8())
 	if error != OK:
-		sync_upload_failed.emit("响应解析失败")
+		_emit_sync_error("响应解析失败")
 		return
 	var response = json.data
 	if not response is Dictionary:
-		sync_upload_failed.emit("无效的响应格式")
+		_emit_sync_error("无效的响应格式")
 		return
 	if response_code == 200:
 		var data = response.get("data", {})
-		# 判断是上传还是下载响应
-		if data is Dictionary and data.has("coins"):
-			# 下载响应
-			sync_download_success.emit(data)
+		if _pending_sync_request == "download":
+			# 下载响应 —— 检查是否有云存档数据
+			var save_data = data.get("saveData", null) if data is Dictionary else null
+			if save_data is Dictionary:
+				# 有云存档，应用到 GlobalSave
+				GlobalSave.from_dict(save_data)
+				sync_download_success.emit(data)
+			else:
+				# 无云存档，提示用户，不修改本地数据
+				sync_download_failed.emit("当前用户没有云存档")
 		else:
 			# 上传响应
 			sync_upload_success.emit()
 	else:
 		var msg = response.get("message", "请求失败")
-		sync_upload_failed.emit(msg)
+		_emit_sync_error(msg)
+	_pending_sync_request = ""
+
+# 根据当前同步请求类型 emit 对应的错误信号
+func _emit_sync_error(error_msg: String):
+	if _pending_sync_request == "download":
+		sync_download_failed.emit(error_msg)
+	else:
+		sync_upload_failed.emit(error_msg)
 
 # 退出登录
 func logout():

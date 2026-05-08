@@ -16,6 +16,9 @@ signal boss_defeated(boss_id: String)
 signal time_updated(seconds: int)
 signal weapon_acquired(weapon_id: String)
 signal passive_acquired(passive_id: String)
+signal boss_phase_started  # Emitted when normal phase ends, boss phase begins
+signal boss_intro_started  # Emitted after 3s intro, boss can spawn
+signal all_pickups_absorbed  # Emitted when all pickups have been absorbed
 
 # Game state
 enum GameState { MENU, PLAYING, PAUSED, LEVEL_UP, DIALOGUE, GAME_OVER, VICTORY }
@@ -56,7 +59,7 @@ var equipped_passives: Array[Dictionary] = []  # [{id, level}]
 
 # Game timer
 var game_time: float = 0.0
-var game_time_limit: float = 900.0  # 15 minutes
+var game_time_limit: float = 900.0  # 15 minutes (kept for reference)
 
 # Kill counter
 var kill_count: int = 0
@@ -65,6 +68,14 @@ var boss_spawned_flag: bool = false
 # Boss battle state
 var boss_active: bool = false
 var boss_ref: Node = null
+
+# Boss phase flow
+var boss_phase: bool = false  # Whether we've entered boss phase
+var normal_phase_duration: float = 300.0  # 5 minutes of normal enemies
+var boss_intro_playing: bool = false  # Boss intro animation playing
+var boss_intro_timer: float = 0.0
+var boss_intro_duration: float = 3.0  # 3 seconds for boss intro
+var absorbing_pickups: bool = false  # Absorbing pickups after boss defeat
 
 # Combat statistics
 var total_damage_dealt: float = 0.0
@@ -96,9 +107,18 @@ func _process(delta: float):
 		var curr_second = int(game_time)
 		if curr_second > prev_second:
 			time_updated.emit(curr_second)
-		# Check time limit
-		if game_time >= game_time_limit:
-			win_game()
+		# Check normal phase end -> boss phase
+		if not boss_phase and game_time >= normal_phase_duration:
+			_start_boss_phase()
+		# Boss intro countdown
+		if boss_intro_playing:
+			boss_intro_timer -= delta
+			if boss_intro_timer <= 0:
+				boss_intro_playing = false
+				boss_intro_started.emit()
+		# Pickup absorption
+		if absorbing_pickups:
+			_process_pickup_absorption(delta)
 
 var _heal_accumulator: float = 0.0
 
@@ -136,6 +156,10 @@ func start_game():
 	boss_spawned_flag = false
 	boss_active = false
 	boss_ref = null
+	boss_phase = false
+	boss_intro_playing = false
+	boss_intro_timer = 0.0
+	absorbing_pickups = false
 	total_damage_dealt = 0.0
 	damage_taken = 0
 	coins_collected = 0
@@ -153,9 +177,11 @@ func start_game():
 	if char_data["passive"] != "":
 		equipped_passives.append({"id": char_data["passive"], "level": 0})
 	
-	# Set time limit from map
+	# Set time limit from map (used for reference, boss phase triggers at normal_phase_duration)
 	var map_data = Database.maps[selected_map_id]
 	game_time_limit = map_data["time_limit"]
+	# Use map's normal_phase_duration if defined, otherwise default 300
+	normal_phase_duration = map_data.get("normal_phase_duration", 300.0)
 	
 	current_state = GameState.PLAYING
 	game_started.emit()
@@ -343,14 +369,76 @@ func apply_level_up_choice(choice: Dictionary):
 			heal_player(int(player_max_hp / 4.0))
 	current_state = GameState.PLAYING
 
+func _start_boss_phase():
+	boss_phase = true
+	
+	# 1. 清空场上所有怪物
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	for enemy in enemies:
+		if is_instance_valid(enemy):
+			enemy.queue_free()
+	
+	# 2. 将主角传送至出生点
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		players[0].global_position = Vector2.ZERO
+	
+	# 3. 创建Boss竞技场阻挡物
+	var game_scene = get_tree().current_scene
+	if game_scene.has_method("create_boss_arena"):
+		game_scene.create_boss_arena()
+	
+	boss_phase_started.emit()
+	# Start boss intro
+	boss_intro_playing = true
+	boss_intro_timer = boss_intro_duration
+
+func absorb_all_pickups():
+	# Collect all pickups on the field and absorb them to the player
+	absorbing_pickups = true
+	var pickups = get_tree().get_nodes_in_group("pickups")
+	if pickups.size() == 0:
+		absorbing_pickups = false
+		all_pickups_absorbed.emit()
+		win_game()
+		return
+	# Move all pickups toward player at high speed
+	for pickup in pickups:
+		if is_instance_valid(pickup) and pickup.has_method("set_absorbing"):
+			pickup.set_absorbing(true)
+	# Set a timeout to force-complete absorption
+	var timer = get_tree().create_timer(3.0)
+	timer.timeout.connect(_force_finish_absorption)
+
+func _process_pickup_absorption(_delta: float):
+	var pickups = get_tree().get_nodes_in_group("pickups")
+	if pickups.size() == 0:
+		absorbing_pickups = false
+		all_pickups_absorbed.emit()
+		win_game()
+
+func _force_finish_absorption():
+	if absorbing_pickups:
+		absorbing_pickups = false
+		# Force collect remaining pickups
+		var pickups = get_tree().get_nodes_in_group("pickups")
+		for pickup in pickups:
+			if is_instance_valid(pickup):
+				if pickup.has_method("force_collect"):
+					pickup.force_collect()
+				else:
+					pickup.queue_free()
+		all_pickups_absorbed.emit()
+		win_game()
+
 func win_game():
 	current_state = GameState.VICTORY
-	SaveManager.add_gold(player_coins)
+	SaveManager.add_coins(player_coins)
 	game_over.emit(true)
 
 func lose_game():
 	current_state = GameState.GAME_OVER
-	SaveManager.add_gold(player_coins)
+	SaveManager.add_coins(player_coins)
 	game_over.emit(false)
 
 func get_game_time_string() -> String:
