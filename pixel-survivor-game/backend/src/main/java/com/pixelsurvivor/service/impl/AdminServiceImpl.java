@@ -1,6 +1,7 @@
 package com.pixelsurvivor.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -10,12 +11,14 @@ import com.pixelsurvivor.common.exception.BusinessException;
 import com.pixelsurvivor.common.result.ResultCode;
 import com.pixelsurvivor.entity.Admin;
 import com.pixelsurvivor.entity.AdminOperationLog;
+import com.pixelsurvivor.entity.CharacterDefinition;
 import com.pixelsurvivor.entity.MapDefinition;
 import com.pixelsurvivor.entity.User;
 import com.pixelsurvivor.entity.UserSaveData;
 import com.pixelsurvivor.entity.vo.DailyStatsVO;
 import com.pixelsurvivor.mapper.AdminMapper;
 import com.pixelsurvivor.mapper.AdminOperationLogMapper;
+import com.pixelsurvivor.mapper.CharacterDefinitionMapper;
 import com.pixelsurvivor.mapper.MapDefinitionMapper;
 import com.pixelsurvivor.mapper.UserMapper;
 import com.pixelsurvivor.mapper.UserSaveDataMapper;
@@ -48,6 +51,7 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
     private final UserMapper userMapper;
     private final UserSaveDataMapper userSaveDataMapper;
     private final MapDefinitionMapper mapDefinitionMapper;
+    private final CharacterDefinitionMapper characterDefinitionMapper;
     private final UserService userService;
     private final ObjectMapper objectMapper;
 
@@ -60,14 +64,6 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
             throw new BusinessException(ResultCode.USERNAME_OR_PASSWORD_ERROR);
         }
         return admin;
-    }
-
-    @Override
-    public IPage<AdminOperationLog> getOperationLogs(int page, int size) {
-        Page<AdminOperationLog> pageParam = new Page<>(page, size);
-        LambdaQueryWrapper<AdminOperationLog> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(AdminOperationLog::getCreatedAt);
-        return adminOperationLogMapper.selectPage(pageParam, wrapper);
     }
 
     @Override
@@ -119,6 +115,27 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
             throw new BusinessException(ResultCode.PARAM_ERROR, "不能删除超级管理员");
         }
         this.removeById(id);
+    }
+
+    @Override
+    public IPage<AdminOperationLog> getOperationLogs(int page, int size,
+                                                      String adminUsername, String module,
+                                                      String startDate, String endDate) {
+        QueryWrapper<AdminOperationLog> qw = new QueryWrapper<>();
+        if (adminUsername != null && !adminUsername.isEmpty()) {
+            qw.like("admin_username", adminUsername);
+        }
+        if (module != null && !module.isEmpty()) {
+            qw.eq("module", module);
+        }
+        if (startDate != null && !startDate.isEmpty()) {
+            qw.ge("created_at", startDate + " 00:00:00");
+        }
+        if (endDate != null && !endDate.isEmpty()) {
+            qw.le("created_at", endDate + " 23:59:59");
+        }
+        qw.orderByDesc("created_at");
+        return adminOperationLogMapper.selectPage(new Page<>(page, size), qw);
     }
 
     @Override
@@ -290,6 +307,13 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
                      .orderByAsc(MapDefinition::getOrderIndex);
         List<MapDefinition> allMaps = mapDefinitionMapper.selectList(mapDefWrapper);
         saveData.put("mapDefinitions", allMaps);
+
+        // 附加角色定义信息（用于前端展示所有角色）
+        LambdaQueryWrapper<CharacterDefinition> charDefWrapper = new LambdaQueryWrapper<>();
+        charDefWrapper.eq(CharacterDefinition::getIsActive, 1)
+                      .orderByAsc(CharacterDefinition::getId);
+        List<CharacterDefinition> allChars = characterDefinitionMapper.selectList(charDefWrapper);
+        saveData.put("characterDefinitions", allChars);
 
         return saveData;
     }

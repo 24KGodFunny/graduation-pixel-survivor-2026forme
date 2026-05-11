@@ -19,6 +19,7 @@ signal passive_acquired(passive_id: String)
 signal boss_phase_started  # Emitted when normal phase ends, boss phase begins
 signal boss_intro_started  # Emitted after 3s intro, boss can spawn
 signal all_pickups_absorbed  # Emitted when all pickups have been absorbed
+signal boss_teleport_started(callback: Callable)  # Emitted when player needs to teleport with black screen
 
 # Game state
 enum GameState { MENU, PLAYING, PAUSED, LEVEL_UP, DIALOGUE, GAME_OVER, VICTORY }
@@ -76,6 +77,7 @@ var boss_intro_playing: bool = false  # Boss intro animation playing
 var boss_intro_timer: float = 0.0
 var boss_intro_duration: float = 3.0  # 3 seconds for boss intro
 var absorbing_pickups: bool = false  # Absorbing pickups after boss defeat
+var player_movement_locked: bool = false  # Lock player movement during pickup absorption
 
 # Combat statistics
 var total_damage_dealt: float = 0.0
@@ -160,6 +162,7 @@ func start_game():
 	boss_intro_playing = false
 	boss_intro_timer = 0.0
 	absorbing_pickups = false
+	player_movement_locked = false
 	total_damage_dealt = 0.0
 	damage_taken = 0
 	coins_collected = 0
@@ -184,6 +187,7 @@ func start_game():
 	normal_phase_duration = map_data.get("normal_phase_duration", 300.0)
 	
 	current_state = GameState.PLAYING
+	AudioManager.play_bgm("battle")
 	game_started.emit()
 
 func pause_game():
@@ -378,15 +382,18 @@ func _start_boss_phase():
 		if is_instance_valid(enemy):
 			enemy.queue_free()
 	
-	# 2. 将主角传送至出生点
-	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		players[0].global_position = Vector2.ZERO
+	# 2. 通过黑屏过渡传送玩家到出生点
+	var teleport_callback = func():
+		# 将主角传送至出生点
+		var players = get_tree().get_nodes_in_group("player")
+		if players.size() > 0:
+			players[0].global_position = Vector2.ZERO
+		# 创建Boss竞技场阻挡物
+		var game_scene = get_tree().current_scene
+		if game_scene.has_method("create_boss_arena"):
+			game_scene.create_boss_arena()
 	
-	# 3. 创建Boss竞技场阻挡物
-	var game_scene = get_tree().current_scene
-	if game_scene.has_method("create_boss_arena"):
-		game_scene.create_boss_arena()
+	boss_teleport_started.emit(teleport_callback)
 	
 	boss_phase_started.emit()
 	# Start boss intro
@@ -394,6 +401,8 @@ func _start_boss_phase():
 	boss_intro_timer = boss_intro_duration
 
 func absorb_all_pickups():
+	# 锁定玩家移动
+	player_movement_locked = true
 	# Collect all pickups on the field and absorb them to the player
 	absorbing_pickups = true
 	var pickups = get_tree().get_nodes_in_group("pickups")
@@ -433,6 +442,7 @@ func _force_finish_absorption():
 
 func win_game():
 	current_state = GameState.VICTORY
+	player_movement_locked = false
 	SaveManager.add_coins(player_coins)
 	game_over.emit(true)
 

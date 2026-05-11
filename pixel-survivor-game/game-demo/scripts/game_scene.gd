@@ -57,9 +57,8 @@ func _ready():
 	# Boundary walls (StaticBody2D) - 4 sides
 	_create_boundary_walls()
 	
-	# Boss health bar
-	boss_hp_bar = preload("res://scripts/boss_health_bar.gd").new()
-	add_child(boss_hp_bar)
+	# Boss health bar - use the one already in HUD (CanvasLayer)
+	boss_hp_bar = $HUD/BossHealthBar
 	
 	# Enemy spawner
 	var spawner = Node2D.new()
@@ -67,12 +66,28 @@ func _ready():
 	add_child(spawner)
 	
 	# Connect signals
+	# 播放战斗BGM（随机选择一首战斗曲目，循环播放）
+	if AudioManager:
+		var battle_bgms = [
+			"res://assets/audio/bgm_battle1.wav",
+			"res://assets/audio/bgm_battle2.wav",
+			"res://assets/audio/bgm_battle3.wav",
+		]
+		var chosen_bgm = battle_bgms[randi() % battle_bgms.size()]
+		print("[AudioManager] 尝试播放战斗BGM: ", chosen_bgm)
+		AudioManager.play_bgm(chosen_bgm)
+		if AudioManager.bgm_player.playing:
+			print("[AudioManager] 战斗BGM播放成功，正在循环播放")
+		else:
+			push_warning("[AudioManager] 战斗BGM播放失败: " + chosen_bgm)
+	
 	GameManager.start_game()
 	GameManager.game_over.connect(_on_game_over)
 	GameManager.boss_spawned.connect(_on_boss_spawned)
 	GameManager.boss_defeated.connect(_on_boss_defeated)
 	GameManager.boss_phase_started.connect(_on_boss_phase_started)
 	GameManager.boss_intro_started.connect(_on_boss_intro_started)
+	GameManager.boss_teleport_started.connect(_on_boss_teleport_started)
 
 func _process(_delta):
 	if GameManager.current_state == GameManager.GameState.PLAYING:
@@ -95,18 +110,23 @@ func _on_boss_spawned(boss_name: String):
 	if Database.bosses.has(boss_id):
 		boss_data = Database.bosses[boss_id]
 	
+	# 切换到Boss BGM
+	if AudioManager:
+		AudioManager.crossfade_bgm("res://assets/audio/bgm_boss.wav", 1.0)
+	
 	if boss_data:
 		boss_hp_bar.show_boss(boss_name, boss_data["max_hp"] * GameManager.difficulty_mult, boss_data["phases"])
 	else:
 		boss_hp_bar.show_boss(boss_name, 1000, 2)
 
 func _on_boss_phase_started():
-	# Show "高危目标即将降临" warning overlay
+	# Show "高危目标即将降临" warning overlay on HUD (screen space)
+	var hud = $HUD
 	var overlay = ColorRect.new()
 	overlay.color = Color(0.8, 0.0, 0.0, 0.3)
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.name = "BossWarningOverlay"
-	add_child(overlay)
+	hud.add_child(overlay)
 	
 	var warning_label = Label.new()
 	warning_label.text = "⚠ 高危目标即将降临 ⚠"
@@ -127,17 +147,18 @@ func _on_boss_phase_started():
 	tween.tween_callback(overlay.queue_free)
 
 func _on_boss_intro_started():
-	# Show boss portrait / intro display
+	# Show boss portrait / intro display on HUD (screen space)
 	var boss_id = Database.maps[GameManager.selected_map_id].get("boss", "sakura")
 	var boss_data = Database.bosses.get(boss_id, {})
 	var boss_name = boss_data.get("name", "???")
 	
+	var hud = $HUD
 	# Create full-screen boss intro overlay
 	var overlay = ColorRect.new()
 	overlay.color = Color(0.0, 0.0, 0.0, 0.7)
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.name = "BossIntroOverlay"
-	add_child(overlay)
+	hud.add_child(overlay)
 	
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -172,15 +193,46 @@ func _on_boss_intro_started():
 	tween.tween_property(overlay, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(overlay.queue_free)
 
+func _on_boss_teleport_started(callback: Callable):
+	# Black screen transition for player teleport
+	var hud = $HUD
+	var black_screen = ColorRect.new()
+	black_screen.color = Color(0.0, 0.0, 0.0, 0.0)
+	black_screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	black_screen.name = "TeleportBlackScreen"
+	hud.add_child(black_screen)
+	
+	var tween = create_tween()
+	# Fade in (0 -> 1 alpha) over 0.5s
+	tween.tween_property(black_screen, "color:a", 1.0, 0.5)
+	# Execute teleport callback while screen is black
+	tween.tween_callback(callback)
+	# Brief hold
+	tween.tween_interval(0.3)
+	# Fade out (1 -> 0 alpha) over 0.5s
+	tween.tween_property(black_screen, "color:a", 0.0, 0.5)
+	# Clean up
+	tween.tween_callback(black_screen.queue_free)
+
 func _on_boss_defeated(_boss_id: String):
 	boss_hp_bar.hide_bar()
+	# Boss defeated - 切回战斗BGM或停止
+	if AudioManager:
+		AudioManager.stop_bgm()
 	# Boss defeated - absorb all pickups first, then victory
 	GameManager.absorb_all_pickups()
 
 func _on_game_over(victory: bool):
 	if settlement_shown:
 		return
+	# 如果已经返回主菜单（暂停退出），不显示结算界面
+	if GameManager.current_state == GameManager.GameState.MENU:
+		return
 	settlement_shown = true
+	
+	# 停止战斗BGM（结算界面会播放自己的BGM）
+	if AudioManager:
+		AudioManager.stop_bgm()
 	
 	if victory:
 		# Show victory settlement UI

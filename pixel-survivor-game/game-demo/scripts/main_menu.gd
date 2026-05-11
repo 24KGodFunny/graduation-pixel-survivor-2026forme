@@ -13,14 +13,38 @@ extends Control
 
 var selected_char_id: String = ""
 
+# 防止重复下载云存档的标志（每次登录只下载一次）
+static var _cloud_downloaded: bool = false
+
+# 当前弹窗引用（避免多个排他窗口冲突）
+var _current_dialog: Window = null
+
 func _ready():
+	# 确保菜单BGM持续播放
+	if AudioManager:
+		AudioManager.play_bgm("res://assets/audio/bgm_menu.wav")
+	# 设置背景图
+	_setup_background()
+	# 加载自定义按键绑定
+	GlobalSave.apply_key_bindings()
 	_populate_characters()
 	_update_gold_display()
 	_update_diamond_display()
 	_update_login_display()
 	_update_sync_buttons()
-	# 尝试自动登录
-	NetworkManager.auto_login()
+	_add_codex_button()
+	_add_settings_button()
+	# 尝试自动登录并验证token
+	var did_auto_login = NetworkManager.auto_login()
+	if did_auto_login:
+		# 连接用户信息响应信号来验证token
+		if not NetworkManager.user_info_received.is_connected(_on_token_verify_success):
+			NetworkManager.user_info_received.connect(_on_token_verify_success)
+		if not NetworkManager.token_verify_failed.is_connected(_on_token_verify_failed):
+			NetworkManager.token_verify_failed.connect(_on_token_verify_failed)
+	else:
+		NetworkManager.is_logged_in = false
+		NetworkManager.token = ""
 	# 连接登录成功信号
 	if not NetworkManager.login_success.is_connected(_on_login_success):
 		NetworkManager.login_success.connect(_on_login_success)
@@ -54,6 +78,12 @@ func _update_char_detail():
 	# Clear old content
 	for child in char_detail.get_children():
 		child.queue_free()
+	
+	# 重置 start_btn 状态（避免切换角色时 disabled/theme 残留）
+	start_btn.disabled = false
+	start_btn.remove_theme_color_override("font_color")
+	start_btn.remove_theme_color_override("font_disabled_color")
+	start_btn.visible = true
 	
 	if selected_char_id == "" or not Database.characters.has(selected_char_id):
 		return
@@ -316,6 +346,22 @@ func _update_char_detail():
 func _on_upgrade_pressed():
 	if selected_char_id == "":
 		return
+	var char_level = SaveManager.get_character_level(selected_char_id)
+	if char_level >= Database.CHARACTER_MAX_LEVEL:
+		return
+	var cost = Database.get_character_level_up_cost(char_level)
+	if SaveManager.get_coins() < cost:
+		# 金币不足，弹出提示
+		var dialog = AcceptDialog.new()
+		dialog.title = "金币不足"
+		dialog.dialog_text = "升级需要 %d 金币\n当前金币: %d" % [cost, SaveManager.get_coins()]
+		dialog.ok_button_text = "确定"
+		add_child(dialog)
+		dialog.popup_centered(Vector2i(300, 120))
+		dialog.confirmed.connect(func(): dialog.queue_free())
+		return
+	# 扣除金币并升级
+	SaveManager.spend_coins(cost)
 	SaveManager.upgrade_character(selected_char_id)
 	_update_gold_display()
 	_update_char_detail()
@@ -353,9 +399,13 @@ func _update_gold_display():
 	if gold_label:
 		gold_label.text = "💰 %d" % SaveManager.get_coins()
 
+func _click():
+	AudioManager.play_sfx("res://assets/audio/sfx_click.wav")
+
 func _on_start_button_pressed():
 	if selected_char_id == "":
 		return
+	_click()
 	GameManager.selected_character_id = selected_char_id
 	get_tree().change_scene_to_file("res://scenes/map_select.tscn")
 
@@ -463,11 +513,18 @@ func _on_sync_download_failed(error: String):
 	sync_download_btn.disabled = false
 	sync_download_btn.text = "下载存档"
 	var dialog = AcceptDialog.new()
-	dialog.title = "同步失败"
-	dialog.dialog_text = "错误: %s" % error
-	dialog.ok_button_text = "确定"
-	add_child(dialog)
-	dialog.popup_centered(Vector2i(300, 100))
+	if error == "当前用户没有云存档":
+		dialog.title = "提示"
+		dialog.dialog_text = "当前用户没有云存档，本地数据未改变。"
+		dialog.ok_button_text = "确定"
+		add_child(dialog)
+		dialog.popup_centered(Vector2i(300, 100))
+	else:
+		dialog.title = "同步失败"
+		dialog.dialog_text = "错误: %s" % error
+		dialog.ok_button_text = "确定"
+		add_child(dialog)
+		dialog.popup_centered(Vector2i(300, 100))
 	dialog.confirmed.connect(func(): dialog.queue_free())
 
 func _on_login_button_pressed():
@@ -483,6 +540,12 @@ func _on_login_button_pressed():
 		dialog.popup_centered(Vector2i(300, 150))
 		dialog.confirmed.connect(func():
 			NetworkManager.logout()
+			SaveManager.reset_save()
+			_populate_characters()
+			_update_gold_display()
+			_update_diamond_display()
+			if selected_char_id != "":
+				_update_char_detail()
 			_update_login_display()
 			_update_sync_buttons()
 			dialog.queue_free()
@@ -496,9 +559,105 @@ func _on_login_button_pressed():
 		login_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 		add_child(login_ui)
 
+func _setup_background():
+	var bg_tex = TextureRect.new()
+	bg_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg_tex.stretch_mode = TextureRect.STRETCH_SCALE
+	if ResourceLoader.exists("res://assets/images/ui/panel_bg.png"):
+		bg_tex.texture = load("res://assets/images/ui/panel_bg.png")
+		# 插入到最底层（BG节点之后）
+		add_child(bg_tex)
+		move_child(bg_tex, 1) # 0是BG Panel，1是背景图
+
+func _on_token_verify_success(_data: Dictionary):
+	# Token验证成功，标记为已登录
+	NetworkManager.is_logged_in = true
+	_update_login_display()
+	_update_sync_buttons()
+	# 仅在本次会话首次验证成功时自动下载一次存档
+	if not _cloud_downloaded:
+		_cloud_downloaded = true
+		NetworkManager.sync_download()
+
+func _on_token_verify_failed():
+	# Token验证失败，清除登录状态，跳转到登录界面
+	NetworkManager.is_logged_in = false
+	NetworkManager.token = ""
+	_cloud_downloaded = false
+	SaveManager.clear_login_data()
+	_update_login_display()
+	_update_sync_buttons()
+	# 自动弹出登录界面
+	var login_scene = load("res://scripts/login_ui.gd")
+	var login_ui = Control.new()
+	login_ui.set_script(login_scene)
+	login_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(login_ui)
+
 func _on_login_success(_data: Dictionary):
 	_update_login_display()
 	_update_sync_buttons()
+	# 登录成功后自动下载一次存档（仅首次）
+	if not _cloud_downloaded:
+		_cloud_downloaded = true
+		NetworkManager.sync_download()
+
+## 统一弹窗辅助方法（关闭旧弹窗再弹新弹窗，避免排他窗口冲突）
+func _show_dialog(title: String, text: String, size: Vector2i = Vector2i(300, 100)):
+	if _current_dialog and is_instance_valid(_current_dialog):
+		_current_dialog.queue_free()
+	var dialog = AcceptDialog.new()
+	dialog.title = title
+	dialog.dialog_text = text
+	dialog.ok_button_text = "确定"
+	add_child(dialog)
+	dialog.popup_centered(size)
+	_current_dialog = dialog
+	dialog.confirmed.connect(func():
+		if _current_dialog == dialog:
+			_current_dialog = null
+		dialog.queue_free()
+	)
+
+func _add_codex_button():
+	# 在返回按钮旁边添加图鉴按钮
+	if back_btn and back_btn.get_parent():
+		var parent = back_btn.get_parent()
+		var codex_btn = Button.new()
+		codex_btn.text = "📖 图鉴"
+		codex_btn.custom_minimum_size = Vector2(100, 36)
+		codex_btn.pressed.connect(_on_codex_pressed)
+		# 插入到返回按钮之前
+		parent.add_child(codex_btn)
+		parent.move_child(codex_btn, back_btn.get_index())
+
+func _on_codex_pressed():
+	var codex_scene = load("res://scripts/codex_ui.gd")
+	var codex_ui = Control.new()
+	codex_ui.set_script(codex_scene)
+	codex_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(codex_ui)
+
+func _add_settings_button():
+	if back_btn and back_btn.get_parent():
+		var parent = back_btn.get_parent()
+		var settings_btn = Button.new()
+		settings_btn.text = "⚙ 设置"
+		settings_btn.custom_minimum_size = Vector2(100, 36)
+		settings_btn.pressed.connect(_on_settings_pressed)
+		parent.add_child(settings_btn)
+		parent.move_child(settings_btn, back_btn.get_index())
+
+func _on_settings_pressed():
+	var settings_scene = load("res://scripts/settings_ui.gd")
+	var settings_ui = Control.new()
+	settings_ui.set_script(settings_scene)
+	settings_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(settings_ui)
+	settings_ui.back_pressed.connect(func():
+		settings_ui.queue_free()
+	)
 
 func _on_back_button_pressed():
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	_click()
+	get_tree().change_scene_to_file("res://scenes/title_screen.tscn")

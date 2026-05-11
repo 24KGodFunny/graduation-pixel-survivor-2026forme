@@ -23,9 +23,11 @@ public interface AdminService extends IService<Admin> {
     Admin login(String username, String password);
 
     /**
-     * 获取操作日志(分页)
+     * 获取操作日志(分页+筛选)
      */
-    IPage<AdminOperationLog> getOperationLogs(int page, int size);
+    IPage<AdminOperationLog> getOperationLogs(int page, int size,
+                                               String adminUsername, String module,
+                                               String startDate, String endDate);
 
     /**
      * 注册新管理员

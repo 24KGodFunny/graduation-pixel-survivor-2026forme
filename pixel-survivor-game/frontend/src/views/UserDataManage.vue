@@ -63,7 +63,8 @@
       <!-- 角色信息 -->
       <h4 class="section-title">👤 角色</h4>
       <el-table :data="characterTableData" border class="section-content">
-        <el-table-column prop="code" label="角色编码" width="180" />
+        <el-table-column prop="charCode" label="角色编码" width="120" />
+        <el-table-column prop="charName" label="角色名称" width="120" />
         <el-table-column label="解锁状态" width="120">
           <template #default="{ row }">
             <el-tag :type="row.unlocked ? 'success' : 'info'">
@@ -74,6 +75,11 @@
         <el-table-column label="等级" width="120">
           <template #default="{ row }">
             <span>{{ row.level || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="unlockCost" label="解锁费用" width="120">
+          <template #default="{ row }">
+            <span>{{ row.unlockCost > 0 ? row.unlockCost + ' 金币' : '免费' }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -158,7 +164,7 @@
         <el-form-item
           v-for="char in editCharacters"
           :key="char.code"
-          :label="char.code"
+          :label="char.charName || char.code"
         >
           <el-switch v-model="char.unlocked" active-text="已解锁" inactive-text="未解锁" style="margin-right: 16px;" />
           <el-input-number
@@ -237,11 +243,14 @@ const buildCharacterTable = () => {
   const saveData = userData.value.saveData
   const unlocked = saveData.unlocked_characters || []
   const levels = saveData.character_levels || {}
-  const allChars = new Set([...unlocked, ...Object.keys(levels)])
-  characterTableData.value = Array.from(allChars).map(code => ({
-    code,
-    unlocked: unlocked.includes(code),
-    level: levels[code] || null
+  const charDefs = saveData.characterDefinitions || []
+  // 以角色定义表为基准，展示所有角色
+  characterTableData.value = charDefs.map(def => ({
+    charCode: def.charCode,
+    charName: def.charName,
+    unlocked: unlocked.includes(def.charCode),
+    level: levels[def.charCode] || null,
+    unlockCost: def.unlockCost || 0
   }))
 }
 
@@ -310,11 +319,15 @@ const handleEditSaveData = () => {
   saveDataForm.coins = saveData.coins ?? 0
   saveDataForm.diamonds = saveData.diamonds ?? 0
 
-  // 从当前数据快照创建编辑用的独立数组（避免 computed 只读问题）
-  editCharacters.value = characterTableData.value.map(c => ({
-    code: c.code,
-    unlocked: c.unlocked,
-    level: c.level || 1
+  // 从角色定义表创建编辑用的独立数组（包含所有角色）
+  const charDefs = saveData.characterDefinitions || []
+  const unlocked = saveData.unlocked_characters || []
+  const levels = saveData.character_levels || {}
+  editCharacters.value = charDefs.map(def => ({
+    code: def.charCode,
+    charName: def.charName,
+    unlocked: unlocked.includes(def.charCode),
+    level: levels[def.charCode] || 1
   }))
   editMaps.value = mapTableData.value.map(m => ({
     mapCode: m.mapCode,

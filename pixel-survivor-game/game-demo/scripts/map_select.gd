@@ -14,6 +14,9 @@ var unlock_label: Label
 
 func _ready():
 	_build_ui()
+	# 确保菜单BGM在地图选择界面继续播放
+	if AudioManager and not AudioManager.bgm_player.playing:
+		AudioManager.play_bgm("res://assets/audio/bgm_menu.wav")
 	# Default select first unlocked map
 	var first_map = "tutorial"
 	for mid in Database.maps:

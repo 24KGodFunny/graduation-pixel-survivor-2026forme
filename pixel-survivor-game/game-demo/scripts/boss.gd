@@ -36,6 +36,7 @@ func _play_spawn_anim():
 		if child is CollisionShape2D:
 			child.set_deferred("disabled", true)
 	
+	AudioManager.play_sfx("res://assets/audio/sfx_boss_intro.wav")
 	AnimHelper.play_boss_spawn(self, 1.0, _on_spawn_finished)
 
 func _physics_process(delta):
@@ -77,8 +78,7 @@ func die():
 	is_dying = true
 	
 	# 播放Boss死亡音效
-	if AudioManager:
-		AudioManager.play_sfx("sfx_explosion")
+	AudioManager.play_sfx("res://assets/audio/sfx_boss_death.wav")
 	
 	# 生成大量死亡粒子
 	var boss_color = Color.WHITE
@@ -109,13 +109,17 @@ func _on_boss_death_finished():
 			coin_min = data["coin_min"]
 		if data.has("coin_max"):
 			coin_max = data["coin_max"]
-	var coin_count = randi_range(coin_min, coin_max)
-	if coin_count > 0:
+	var total_coins = randi_range(coin_min, coin_max)
+	if total_coins > 0:
 		var coin_scene = preload("res://scripts/coin_pickup.gd")
-		for i in range(coin_count):
+		# Boss金币拆分为最多5个节点，视觉上仍有多堆效果
+		var pile_count = mini(5, total_coins)
+		var coins_per_pile = total_coins / pile_count
+		var remainder = total_coins % pile_count
+		for i in range(pile_count):
 			var coin = Node2D.new()
 			coin.set_script(coin_scene)
-			coin.coin_amount = 1
+			coin.coin_amount = coins_per_pile + (1 if i < remainder else 0)
 			coin.global_position = global_position + Vector2(randf_range(-40, 40), randf_range(-40, 40))
 			get_tree().current_scene.add_child(coin)
 	# Victory is now handled by game_scene.gd -> absorb_all_pickups -> win_game

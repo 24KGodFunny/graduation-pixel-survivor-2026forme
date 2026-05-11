@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 
 /**
  * 管理员操作日志实体
+ * <p>记录哪个管理员，在何时进行了什么操作</p>
  */
 @Data
 @TableName("t_admin_operation_log")
@@ -31,34 +32,49 @@ public class AdminOperationLog {
     private String adminUsername;
 
     /**
-     * 操作名称（如：新增用户）
-     */
-    private String operation;
-
-    /**
-     * 操作模块（如：用户管理）
+     * 操作模块（如：用户管理、用户数据管理、管理员管理）
      */
     private String module;
 
     /**
-     * 目标类型（如：USER, ROLE）
+     * 操作类型（如：CREATE、UPDATE、DELETE、LOGIN）
      */
-    private String targetType;
+    private String operation;
 
     /**
-     * 目标ID
+     * 操作描述（如：封禁用户、编辑用户存档数据）
      */
-    private String targetId;
+    private String description;
 
     /**
-     * 操作详情（JSON或文本）
+     * 请求方法（类名.方法名）
      */
-    private String detail;
+    private String method;
 
     /**
-     * IP地址
+     * 请求参数JSON
      */
-    private String ipAddress;
+    private String params;
+
+    /**
+     * 响应结果JSON
+     */
+    private String response;
+
+    /**
+     * 操作IP地址
+     */
+    private String ip;
+
+    /**
+     * 异常信息
+     */
+    private String errorMsg;
+
+    /**
+     * 耗时(毫秒)
+     */
+    private Long costTime;
 
     /**
      * 创建时间

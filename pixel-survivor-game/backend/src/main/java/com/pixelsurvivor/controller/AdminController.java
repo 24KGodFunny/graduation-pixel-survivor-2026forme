@@ -50,7 +50,7 @@ public class AdminController {
      * 注册新管理员
      */
     @PostMapping("/register")
-    @OperationLog(module = "管理员管理", operation = "CREATE", description = "注册新管理员")
+    @OperationLog(module = "管理员管理", operation = "新增", description = "注册新管理员")
     public Result<?> register(@RequestBody Map<String, String> params) {
         String username = params.get("username");
         String password = params.get("password");
@@ -88,7 +88,7 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/ban")
-    @OperationLog(module = "用户管理", operation = "UPDATE", description = "封禁用户")
+    @OperationLog(module = "用户管理", operation = "封禁", description = "封禁用户")
     public Result<?> banUser(@PathVariable Long id) {
         User user = userService.getById(id);
         user.setStatus(1);
@@ -97,7 +97,7 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/unban")
-    @OperationLog(module = "用户管理", operation = "UPDATE", description = "解封用户")
+    @OperationLog(module = "用户管理", operation = "解封", description = "解封用户")
     public Result<?> unbanUser(@PathVariable Long id) {
         User user = userService.getById(id);
         user.setStatus(0);
@@ -121,7 +121,7 @@ public class AdminController {
      * 删除管理员
      */
     @DeleteMapping("/admins/{id}")
-    @OperationLog(module = "管理员管理", operation = "DELETE", description = "删除管理员")
+    @OperationLog(module = "管理员管理", operation = "删除", description = "删除管理员")
     public Result<?> deleteAdmin(@PathVariable Long id,
                                   @RequestAttribute Long adminId) {
         adminService.deleteAdmin(id, adminId);
@@ -132,7 +132,7 @@ public class AdminController {
      * 修改密码
      */
     @PutMapping("/password")
-    @OperationLog(module = "管理员管理", operation = "UPDATE", description = "修改密码")
+    @OperationLog(module = "管理员管理", operation = "修改", description = "修改密码")
     public Result<?> changePassword(@RequestAttribute Long adminId,
                                      @RequestBody Map<String, String> params) {
         String oldPassword = params.get("oldPassword");
@@ -146,8 +146,12 @@ public class AdminController {
     @GetMapping("/logs")
     public Result<IPage<AdminOperationLog>> getLogs(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return Result.success(adminService.getOperationLogs(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String adminUsername,
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        return Result.success(adminService.getOperationLogs(page, size, adminUsername, module, startDate, endDate));
     }
 
     // AdminController.java 中，在仪表盘相关方法区域添加
@@ -185,7 +189,7 @@ public class AdminController {
      * 更新用户基本信息（昵称等，来自 t_user 表）
      */
     @PutMapping("/users/{userId}")
-    @OperationLog(module = "用户管理", operation = "UPDATE", description = "编辑用户信息")
+    @OperationLog(module = "用户数据管理", operation = "修改", description = "编辑用户信息")
     public Result<Void> updateUser(@PathVariable Long userId, @RequestBody Map<String, Object> params) {
         adminService.updateUser(userId, params);
         return Result.success();
@@ -195,7 +199,7 @@ public class AdminController {
      * 更新用户存档数据（金币、钻石、角色、地图、成就等，操作 t_user_save_data 的 JSON）
      */
     @PutMapping("/users/{userId}/save-data")
-    @OperationLog(module = "用户管理", operation = "UPDATE", description = "编辑用户存档数据")
+    @OperationLog(module = "用户数据管理", operation = "修改", description = "编辑用户存档数据")
     public Result<Void> updateSaveData(@PathVariable Long userId, @RequestBody Map<String, Object> params) {
         adminService.updateSaveData(userId, params);
         return Result.success();
@@ -205,7 +209,7 @@ public class AdminController {
      * 删除用户及其所有关联数据
      */
     @DeleteMapping("/users/{userId}")
-    @OperationLog(module = "用户管理", operation = "DELETE", description = "删除用户")
+    @OperationLog(module = "用户数据管理", operation = "删除", description = "删除用户及其所有关联数据")
     public Result<Void> deleteUser(@PathVariable Long userId) {
         adminService.deleteUserCompletely(userId);
         return Result.success();

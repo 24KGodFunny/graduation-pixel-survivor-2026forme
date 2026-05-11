@@ -10,6 +10,10 @@ var kill_label: Label
 var coin_label: Label
 var weapon_icons: HBoxContainer
 var boss_countdown_label: Label
+var portrait_texture: TextureRect
+var buff_container: VBoxContainer
+var _last_buff_hash: int = 0
+var _last_boss_countdown_second: int = -1
 
 func _ready():
 	var margin = MarginContainer.new()
@@ -20,9 +24,39 @@ func _ready():
 	margin.add_theme_constant_override("margin_bottom", 8)
 	add_child(margin)
 	
+	# Main vertical layout: status bar on top, buff list below
+	var main_vbox = VBoxContainer.new()
+	main_vbox.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	main_vbox.add_theme_constant_override("separation", 4)
+	margin.add_child(main_vbox)
+	
 	var top_hbox = HBoxContainer.new()
 	top_hbox.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	margin.add_child(top_hbox)
+	main_vbox.add_child(top_hbox)
+	
+	# --- Character portrait (top-left corner) ---
+	portrait_texture = TextureRect.new()
+	portrait_texture.custom_minimum_size = Vector2(48, 48)
+	portrait_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait_texture.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	# Load character sprite
+	var char_id = GameManager.selected_character_id
+	if char_id != "" and Database.characters.has(char_id):
+		var sprite_path = Database.characters[char_id].get("sprite", "")
+		if sprite_path != "" and ResourceLoader.exists(sprite_path):
+			portrait_texture.texture = load(sprite_path)
+	# Add border style
+	var portrait_bg = PanelContainer.new()
+	portrait_bg.custom_minimum_size = Vector2(52, 52)
+	var portrait_style = StyleBoxFlat.new()
+	portrait_style.bg_color = Color(0.1, 0.1, 0.15, 0.7)
+	portrait_style.border_color = Color(0.5, 0.7, 1.0)
+	portrait_style.set_border_width_all(2)
+	portrait_style.set_corner_radius_all(4)
+	portrait_style.set_content_margin_all(2)
+	portrait_bg.add_theme_stylebox_override("panel", portrait_style)
+	portrait_bg.add_child(portrait_texture)
+	top_hbox.add_child(portrait_bg)
 	
 	# --- Left panel: compact semi-transparent info card ---
 	var panel = PanelContainer.new()
@@ -89,6 +123,13 @@ func _ready():
 	weapon_icons.add_theme_constant_override("separation", 3)
 	panel_vbox.add_child(weapon_icons)
 	
+	# --- Buff list (below status panel, left-aligned) ---
+	buff_container = VBoxContainer.new()
+	buff_container.add_theme_constant_override("separation", 2)
+	buff_container.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	buff_container.alignment = BoxContainer.ALIGNMENT_BEGIN
+	main_vbox.add_child(buff_container)
+	
 	# --- Center: boss countdown label (hidden by default) ---
 	boss_countdown_label = Label.new()
 	boss_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -153,6 +194,8 @@ func _create_bar_with_label(bar_name: String, fg_color: Color, bg_color: Color) 
 
 func _process(_delta):
 	if GameManager.current_state == GameManager.GameState.PLAYING:
+		# 优化：buff显示只在数据变化时更新，不在每帧重建
+		_update_buff_display_if_changed()
 		hp_bar.value = float(GameManager.player_hp) / float(GameManager.player_max_hp)
 		hp_label.text = "%d/%d" % [GameManager.player_hp, GameManager.player_max_hp]
 		
@@ -162,21 +205,24 @@ func _process(_delta):
 		
 		coin_label.text = "💰 " + str(GameManager.player_coins)
 		
-		# Update boss countdown - always visible during normal phase
+		# 优化：boss倒计时按秒更新，不在每帧更新
 		if not GameManager.boss_phase:
 			var remaining = GameManager.normal_phase_duration - GameManager.game_time
+			var current_second = int(ceil(remaining))
 			if remaining > 0:
 				boss_countdown_label.visible = true
-				if remaining <= 10:
-					boss_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))
-					boss_countdown_label.add_theme_font_size_override("font_size", 26)
-					boss_countdown_label.text = "⚠ 警告：高危险目标即将出现 %d秒 ⚠" % int(ceil(remaining))
-				else:
-					boss_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
-					boss_countdown_label.add_theme_font_size_override("font_size", 20)
-					var mins = int(remaining / 60)
-					var secs = int(remaining) % 60
-					boss_countdown_label.text = "Boss降临: %02d:%02d" % [mins, secs]
+				if current_second != _last_boss_countdown_second:
+					_last_boss_countdown_second = current_second
+					if remaining <= 10:
+						boss_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))
+						boss_countdown_label.add_theme_font_size_override("font_size", 26)
+						boss_countdown_label.text = "⚠ 警告：高危险目标即将出现 %d秒 ⚠" % current_second
+					else:
+						boss_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+						boss_countdown_label.add_theme_font_size_override("font_size", 20)
+						var mins = int(remaining / 60)
+						var secs = int(remaining) % 60
+						boss_countdown_label.text = "Boss降临: %02d:%02d" % [mins, secs]
 			else:
 				boss_countdown_label.visible = false
 		else:
@@ -199,3 +245,72 @@ func _on_time_updated(_seconds):
 func _on_enemy_killed(_pos, _exp_amount):
 	kill_label.text = "击杀: " + str(GameManager.kill_count)
 	coin_label.text = "💰 " + str(GameManager.player_coins)
+
+func _update_buff_display_if_changed():
+	# 计算当前 buff 数据的哈希值，只在变化时重建
+	var current_hash = hash([GameManager.equipped_weapons, GameManager.equipped_passives])
+	if current_hash == _last_buff_hash:
+		return
+	_last_buff_hash = current_hash
+	_rebuild_buff_display()
+
+func _rebuild_buff_display():
+	# 清除旧的 buff 显示
+	for child in buff_container.get_children():
+		child.queue_free()
+	
+	# 显示已装备的武器（带图标）
+	for w in GameManager.equipped_weapons:
+		var weapon_id = w["id"]
+		var w_level = w["level"]
+		if Database.weapons.has(weapon_id):
+			var w_data = Database.weapons[weapon_id]
+			var row = HBoxContainer.new()
+			row.add_theme_constant_override("separation", 4)
+			buff_container.add_child(row)
+			# 图标
+			var icon = _create_buff_icon(w_data, Color(0.4, 0.7, 1.0))
+			row.add_child(icon)
+			# 名称+等级
+			var lbl = Label.new()
+			lbl.text = "%s Lv.%d" % [w_data["name"], w_level + 1]
+			lbl.add_theme_font_size_override("font_size", 10)
+			lbl.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
+			row.add_child(lbl)
+	
+	# 显示已装备的被动道具（带图标）
+	for p in GameManager.equipped_passives:
+		var passive_id = p["id"]
+		var p_level = p["level"]
+		if Database.passive_items.has(passive_id):
+			var p_data = Database.passive_items[passive_id]
+			var row = HBoxContainer.new()
+			row.add_theme_constant_override("separation", 4)
+			buff_container.add_child(row)
+			# 图标
+			var icon = _create_buff_icon(p_data, Color(1.0, 0.7, 0.3))
+			row.add_child(icon)
+			# 名称+等级
+			var lbl = Label.new()
+			lbl.text = "%s Lv.%d" % [p_data["name"], p_level + 1]
+			lbl.add_theme_font_size_override("font_size", 10)
+			lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
+			row.add_child(lbl)
+
+func _create_buff_icon(item_data: Dictionary, fallback_color: Color) -> Control:
+	var icon_size = Vector2(18, 18)
+	# 尝试加载图标纹理
+	var icon_path = item_data.get("icon", "")
+	if icon_path != "" and ResourceLoader.exists(icon_path):
+		var tex_rect = TextureRect.new()
+		tex_rect.texture = load(icon_path)
+		tex_rect.custom_minimum_size = icon_size
+		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tex_rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return tex_rect
+	# 无图标时用彩色方块占位
+	var color_rect = ColorRect.new()
+	color_rect.color = fallback_color
+	color_rect.custom_minimum_size = icon_size
+	color_rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return color_rect

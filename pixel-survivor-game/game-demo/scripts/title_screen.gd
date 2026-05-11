@@ -6,11 +6,24 @@ var _buttons: Array[Button] = []
 var _selected_index: int = 0
 
 func _ready():
-	# Full-screen dark gradient background
-	var bg = ColorRect.new()
-	bg.color = Color(0.05, 0.03, 0.12)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	# Play menu BGM
+	if AudioManager:
+		AudioManager.play_bgm("res://assets/audio/bgm_menu.wav")
+	# Full-screen background image
+	var bg_tex = TextureRect.new()
+	bg_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg_tex.stretch_mode = TextureRect.STRETCH_SCALE
+	if ResourceLoader.exists("res://assets/images/ui/panel_bg.png"):
+		bg_tex.texture = load("res://assets/images/ui/panel_bg.png")
+	else:
+		# Fallback: dark color
+		var bg = ColorRect.new()
+		bg.color = Color(0.05, 0.03, 0.12)
+		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(bg)
+		bg_tex = null
+	if bg_tex:
+		add_child(bg_tex)
 
 	# Decorative pixel grid lines (subtle)
 	for i in range(8):
@@ -30,7 +43,7 @@ func _ready():
 
 	# Main title with pixel shadow effect
 	var title_shadow = Label.new()
-	title_shadow.text = "异 世 界 前 线"
+	title_shadow.text = "像 素 幸 存 者"
 	title_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_shadow.add_theme_font_size_override("font_size", 58)
 	title_shadow.add_theme_color_override("font_color", Color(0.0, 0.0, 0.0, 0.6))
@@ -39,7 +52,7 @@ func _ready():
 
 	var title = Label.new()
 	title.name = "Title"
-	title.text = "异 世 界 前 线"
+	title.text = "像 素 幸 存 者"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 58)
 	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
@@ -48,7 +61,7 @@ func _ready():
 	# Subtitle
 	var subtitle = Label.new()
 	subtitle.name = "Subtitle"
-	subtitle.text = "ISEKAI  FRONTLINE"
+	subtitle.text = "PIXEL SURVIVOR"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 22)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.55, 0.8))
@@ -121,6 +134,7 @@ func _ready():
 		pressed_style.content_margin_bottom = 8
 		btn.add_theme_stylebox_override("pressed", pressed_style)
 
+		btn.pressed.connect(_on_btn_click)
 		btn.pressed.connect(btn_data[i]["callback"])
 		btn.modulate.a = 0.0  # Start invisible for fade-in
 		btn_container.add_child(btn)
@@ -196,17 +210,20 @@ func _input(event):
 				if _selected_index < _buttons.size():
 					_buttons[_selected_index].emit_signal("pressed")
 
+func _on_btn_click():
+	AudioManager.play_sfx("res://assets/audio/sfx_click.wav")
+
 func _on_start_pressed():
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _on_settings_pressed():
-	var dialog = AcceptDialog.new()
-	dialog.title = "设置"
-	dialog.dialog_text = "⚙ 功能开发中，敬请期待..."
-	dialog.ok_button_text = "确定"
-	add_child(dialog)
-	dialog.popup_centered(Vector2i(280, 100))
-	dialog.confirmed.connect(func(): dialog.queue_free())
+	var settings_script = load("res://scripts/settings_ui.gd")
+	var settings_ui = settings_script.new()
+	settings_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(settings_ui)
+	settings_ui.back_pressed.connect(func():
+		settings_ui.queue_free()
+	)
 
 func _on_exit_pressed():
 	get_tree().quit()

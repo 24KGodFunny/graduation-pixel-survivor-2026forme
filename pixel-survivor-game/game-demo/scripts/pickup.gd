@@ -67,7 +67,9 @@ func _collect():
 		"exp":
 			GameManager.add_exp(value)
 		"coin":
+			AudioManager.play_sfx("res://assets/audio/sfx_coin.wav")
 			GameManager.add_coins(value)
 		"heal":
+			AudioManager.play_sfx("res://assets/audio/sfx_heal.wav")
 			GameManager.heal_player(value)
 	queue_free()

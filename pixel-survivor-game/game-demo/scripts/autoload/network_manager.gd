@@ -10,6 +10,7 @@ signal sync_upload_success()
 signal sync_upload_failed(error: String)
 signal sync_download_success(data: Dictionary)
 signal sync_download_failed(error: String)
+signal token_verify_failed()
 
 # API 配置 - 请根据实际部署地址修改
 const API_BASE_URL = "http://localhost:8080"
@@ -157,7 +158,8 @@ func _handle_error(error_msg: String):
 	elif _pending_request == "login":
 		login_failed.emit(error_msg)
 	elif _pending_request == "user_info":
-		print("获取用户信息失败: ", error_msg)
+		print("Token验证失败: ", error_msg)
+		token_verify_failed.emit()
 	else:
 		if not is_logged_in:
 			login_failed.emit(error_msg)
@@ -165,11 +167,17 @@ func _handle_error(error_msg: String):
 			print("网络错误: ", error_msg)
 	_pending_request = ""
 
+# 检查 sync_http_request 是否正在处理请求，如果是则先取消
+func _cancel_pending_sync_request():
+	if sync_http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+		sync_http_request.cancel_request()
+
 # 上传本地数据到服务器（从 GlobalSave 获取数据）
 func sync_upload():
 	if token == "":
 		sync_upload_failed.emit("未登录")
 		return
+	_cancel_pending_sync_request()
 	_pending_sync_request = "upload"
 	var url = API_BASE_URL + "/api/game/sync/upload"
 	var headers = [
@@ -190,6 +198,7 @@ func sync_download():
 	if token == "":
 		sync_download_failed.emit("未登录")
 		return
+	_cancel_pending_sync_request()
 	_pending_sync_request = "download"
 	var url = API_BASE_URL + "/api/game/sync/download"
 	var headers = [

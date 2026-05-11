@@ -4,16 +4,24 @@ extends Control
 var _time: float = 0.0
 
 func _ready():
-	# Background
-	var bg = ColorRect.new()
-	bg.color = Color(0.08, 0.06, 0.15)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	bg.owner = self
+	# Background image
+	var bg_tex = TextureRect.new()
+	bg_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg_tex.stretch_mode = TextureRect.STRETCH_SCALE
+	if ResourceLoader.exists("res://assets/images/ui/splash_bg.png"):
+		bg_tex.texture = load("res://assets/images/ui/splash_bg.png")
+		add_child(bg_tex)
+	else:
+		# Fallback: solid dark color
+		var bg = ColorRect.new()
+		bg.color = Color(0.08, 0.06, 0.15)
+		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(bg)
+		bg.owner = self
 	
 	# Title label
 	var title = Label.new()
-	title.text = "异 世 界 前 线"
+	title.text = "像 素 幸 存 者"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 64)
@@ -26,7 +34,7 @@ func _ready():
 	
 	# Subtitle
 	var subtitle = Label.new()
-	subtitle.text = "ISEKAI FRONTLINE"
+	subtitle.text = "PIXEL SURVIVOR"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 24)
 	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))

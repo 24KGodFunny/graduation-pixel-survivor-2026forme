@@ -10,6 +10,9 @@ var reveal_timer: float = 0.0
 
 func _ready():
 	layer = 100
+	# 播放失败BGM
+	if AudioManager:
+		AudioManager.play_bgm("res://assets/audio/bgm_defeat.wav")
 	_build_ui()
 	_populate_stats()
 	_start_reveal_animation()
@@ -165,11 +168,17 @@ func _process(delta):
 			buttons_container.visible = true
 
 func _on_retry():
+	# 失败结算时自动上传存档
+	if NetworkManager.is_logged_in:
+		NetworkManager.sync_upload()
 	queue_free()
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
 func _on_return_menu():
+	# 失败结算时自动上传存档
+	if NetworkManager.is_logged_in:
+		NetworkManager.sync_upload()
 	queue_free()
 	get_tree().paused = false
 	GameManager.current_state = GameManager.GameState.MENU

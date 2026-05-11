@@ -82,10 +82,11 @@ func _physics_process(delta):
 			sprite.modulate.a = 1.0
 	
 	var input_dir = Vector2.ZERO
-	input_dir.x = Input.get_axis("move_left", "move_right")
-	input_dir.y = Input.get_axis("move_up", "move_down")
-	if input_dir.length() > 1.0:
-		input_dir = input_dir.normalized()
+	if not GameManager.player_movement_locked:
+		input_dir.x = Input.get_axis("move_left", "move_right")
+		input_dir.y = Input.get_axis("move_up", "move_down")
+		if input_dir.length() > 1.0:
+			input_dir = input_dir.normalized()
 	
 	var spd = GameManager.player_speed * GameManager.player_speed_mult
 	velocity = input_dir * spd
@@ -163,8 +164,7 @@ func take_damage(amount: float):
 	AnimHelper.play_screen_shake(self, 3.0, 0.2)
 	
 	# 播放受击音效
-	if AudioManager:
-		AudioManager.play_sfx("sfx_player_hit")
+	AudioManager.play_sfx("res://assets/audio/sfx_player_hit.wav")
 	
 	# 检查是否死亡
 	if GameManager.player_hp <= 0:
@@ -176,8 +176,7 @@ func _player_die():
 	is_dead = true
 	
 	# 播放死亡音效
-	if AudioManager:
-		AudioManager.play_sfx("sfx_death")
+	AudioManager.play_sfx("res://assets/audio/sfx_death.wav")
 	
 	# 死亡屏幕震动
 	AnimHelper.play_screen_shake(self, 8.0, 0.5)

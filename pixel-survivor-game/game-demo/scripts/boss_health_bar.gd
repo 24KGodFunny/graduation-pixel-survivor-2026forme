@@ -15,14 +15,9 @@ var max_phases: int = 1
 
 func _ready():
 	visible = false
-	anchor_left = 0.5
-	anchor_top = 0.0
-	anchor_right = 0.5
-	anchor_bottom = 0.0
-	offset_left = -hp_bar_width / 2.0 - 10
-	offset_top = 10
-	offset_right = hp_bar_width / 2.0 + 10
-	offset_bottom = 50
+	# Cover full screen so _draw() coordinates match viewport coordinates
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _process(delta):
 	if not bar_visible:

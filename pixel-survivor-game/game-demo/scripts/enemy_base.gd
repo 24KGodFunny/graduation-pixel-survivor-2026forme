@@ -110,8 +110,7 @@ func die():
 	is_dying = true
 	
 	# 播放死亡音效
-	if AudioManager:
-		AudioManager.play_sfx("sfx_enemy_die")
+	AudioManager.play_sfx("res://assets/audio/sfx_enemy_die.wav")
 	
 	# 生成死亡粒子
 	var enemy_color = Color.WHITE
@@ -127,7 +126,7 @@ func die():
 
 func _on_death_anim_finished():
 	GameManager.kill_enemy(global_position, exp_reward)
-	# Drop coins
+	# Drop coins - 优化：合并为单个金币节点，减少节点数量
 	var coin_min: int = 1
 	var coin_max: int = 3
 	if Database.enemies.has(enemy_id):
@@ -136,13 +135,17 @@ func _on_death_anim_finished():
 			coin_min = data["coin_min"]
 		if data.has("coin_max"):
 			coin_max = data["coin_max"]
-	var coin_count = randi_range(coin_min, coin_max)
-	if coin_count > 0:
-		var coin_scene = preload("res://scripts/coin_pickup.gd")
-		for i in range(coin_count):
+	var total_coins = randi_range(coin_min, coin_max)
+	if total_coins > 0:
+		# 检查场上金币数量上限，超过则直接给钱
+		var existing_coins = get_tree().get_nodes_in_group("coins").size()
+		if existing_coins >= 100:
+			GameManager.add_coins(total_coins)
+		else:
+			var coin_scene = preload("res://scripts/coin_pickup.gd")
 			var coin = Node2D.new()
 			coin.set_script(coin_scene)
-			coin.coin_amount = 1
+			coin.coin_amount = total_coins
 			coin.global_position = global_position + Vector2(randf_range(-10, 10), randf_range(-10, 10))
 			get_tree().current_scene.add_child(coin)
 	queue_free()

@@ -13,6 +13,9 @@ var tween: Tween
 
 func _ready():
 	layer = 100
+	# 播放胜利BGM
+	if AudioManager:
+		AudioManager.play_bgm("res://assets/audio/bgm_victory.wav")
 	_build_ui()
 	_populate_stats()
 	_start_reveal_animation()
@@ -223,6 +226,38 @@ func _process(delta):
 			buttons_container.visible = true
 
 func _on_return_menu():
+	# === 通关结算：保存进度到存档 ===
+	var map_id = GameManager.selected_map_id
+	
+	# 1. 添加本局获得的金币
+	if GameManager.coins_collected > 0:
+		SaveManager.add_coins(GameManager.coins_collected)
+	
+	# 2. 标记当前地图为已通关
+	if not SaveManager.is_map_completed(map_id):
+		SaveManager.complete_map(map_id)
+	
+	# 3. 检查是否有新地图需要解锁（当前地图是某个地图的前置条件）
+	for m_id in Database.maps:
+		var m_data = Database.maps[m_id]
+		if m_data.get("unlock_prerequisite", "") == map_id:
+			if not SaveManager.is_map_unlocked(m_id):
+				SaveManager.unlock_map(m_id)
+	
+	# 4. 检查是否有角色需要解锁（通关条件与当前地图相关）
+	var map_name = Database.maps[map_id]["name"] if Database.maps.has(map_id) else ""
+	for char_id in Database.characters:
+		var char_data = Database.characters[char_id]
+		var cond = char_data.get("unlock_condition", "")
+		# 条件格式示例: "通关「公路」后解锁"
+		if cond != "" and map_name != "" and cond.contains(map_name):
+			if not SaveManager.is_character_unlocked(char_id):
+				SaveManager.unlock_character(char_id)
+	
+	# 5. 通关结算时自动上传存档
+	if NetworkManager.is_logged_in:
+		NetworkManager.sync_upload()
+	
 	queue_free()
 	get_tree().paused = false
 	GameManager.current_state = GameManager.GameState.MENU

@@ -3,6 +3,30 @@ extends Node2D
 var player_ref: Node2D
 var weapon_timers: Dictionary = {}
 
+# Weapons that fire towards cursor (handheld weapons)
+const CURSOR_AIM_WEAPONS = ["bullet", "bouncing", "flame"]
+# Melee weapons
+const MELEE_WEAPONS = ["axe"]
+# Weapon sound effects mapping (full resource paths)
+const WEAPON_SFX = {
+	"pistol": "res://assets/audio/sfx_shoot.wav",
+	"sniper": "res://assets/audio/sfx_shoot.wav",
+	"axe": "res://assets/audio/sfx_hit.wav",
+	"grenade": "res://assets/audio/sfx_explosion.wav",
+	"baseball": "res://assets/audio/sfx_hit.wav",
+	"flamethrower": "res://assets/audio/sfx_shoot.wav",
+	"drone": "res://assets/audio/sfx_shoot.wav",
+	"missile": "res://assets/audio/sfx_explosion.wav",
+	"talisman": "res://assets/audio/sfx_shoot.wav",
+	"dagger": "res://assets/audio/sfx_hit.wav",
+	"orbital": "res://assets/audio/sfx_shoot.wav",
+	"pulse": "res://assets/audio/sfx_shoot.wav",
+	"matrix": "res://assets/audio/sfx_shoot.wav",
+	"star": "res://assets/audio/sfx_shoot.wav",
+	"holywater": "res://assets/audio/sfx_shoot.wav",
+	"fireroad": "res://assets/audio/sfx_shoot.wav",
+}
+
 func _ready():
 	GameManager.game_started.connect(_on_game_started)
 	GameManager.weapon_acquired.connect(_on_weapon_acquired)
@@ -36,9 +60,6 @@ func _process(delta):
 			weapon_timers[wid] = cd
 			_fire_weapon(wid, lvl_data)
 
-# Weapons that fire towards cursor (handheld weapons)
-const CURSOR_AIM_WEAPONS = ["bullet", "bouncing", "flame"]
-
 func _fire_weapon(weapon_id: String, lvl_data: Dictionary):
 	var wdata = Database.weapons[weapon_id]
 	var count = lvl_data["count"] + GameManager.player_amount_bonus
@@ -56,15 +77,40 @@ func _fire_weapon(weapon_id: String, lvl_data: Dictionary):
 	if is_crit:
 		damage = int(damage * GameManager.player_crit_damage)
 	
+	# Play weapon sound effect
+	var sfx_path = WEAPON_SFX.get(proj_scene, "res://assets/audio/sfx_shoot.wav")
+	AudioManager.play_sfx(sfx_path)
+	
+	# Melee weapons
+	if MELEE_WEAPONS.has(proj_scene):
+		_fire_melee(weapon_id, count, damage, kb, area)
+		return
+	
 	# Determine aim mode: cursor for handheld weapons, auto-aim for skill/buff weapons
 	var use_cursor = CURSOR_AIM_WEAPONS.has(proj_scene)
 	
 	if use_cursor:
-		_fire_towards_cursor(weapon_id, count, damage, speed, pierce, kb, area)
+		_fire_towards_cursor(weapon_id, proj_scene, count, damage, speed, pierce, kb, area)
 	else:
-		_fire_auto_aim(weapon_id, count, damage, speed, pierce, kb, area)
+		_fire_auto_aim(weapon_id, proj_scene, count, damage, speed, pierce, kb, area)
 
-func _fire_towards_cursor(weapon_id: String, count: int, damage: int, speed: float, pierce: int, kb: float, area: float):
+func _fire_melee(_weapon_id: String, count: int, damage: int, kb: float, area: float):
+	var mouse_pos = get_global_mouse_position()
+	var dir = (mouse_pos - player_ref.global_position).normalized()
+	var angle = dir.angle()
+	
+	for i in range(count):
+		var slash = Area2D.new()
+		slash.set_script(preload("res://scripts/melee_attack.gd"))
+		slash.global_position = player_ref.global_position
+		get_tree().current_scene.add_child(slash)
+		# Spread slashes for multiple count
+		var slash_angle = angle
+		if count > 1:
+			slash_angle = angle + deg_to_rad(20.0 * (i - float(count - 1) / 2.0))
+		slash.setup(damage, kb, slash_angle, area)
+
+func _fire_towards_cursor(weapon_id: String, proj_scene: String, count: int, damage: int, speed: float, pierce: int, kb: float, area: float):
 	var mouse_pos = get_global_mouse_position()
 	var dir = (mouse_pos - player_ref.global_position).normalized()
 	
@@ -75,13 +121,13 @@ func _fire_towards_cursor(weapon_id: String, count: int, damage: int, speed: flo
 			var spread = deg_to_rad(15.0 * (i - float(count - 1) / 2.0))
 			bullet_dir = dir.rotated(spread)
 		
-		var proj = _create_projectile(weapon_id)
+		var proj = _create_projectile(weapon_id, proj_scene)
 		if proj:
 			proj.global_position = player_ref.global_position
 			proj.setup(bullet_dir, speed, damage, pierce, kb, area)
 			get_tree().current_scene.add_child(proj)
 
-func _fire_auto_aim(weapon_id: String, count: int, damage: int, speed: float, pierce: int, kb: float, area: float):
+func _fire_auto_aim(weapon_id: String, proj_scene: String, count: int, damage: int, speed: float, pierce: int, kb: float, area: float):
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	if enemies.is_empty():
 		return
@@ -96,7 +142,7 @@ func _fire_auto_aim(weapon_id: String, count: int, damage: int, speed: float, pi
 			var spread = deg_to_rad(15.0 * (i - float(count - 1) / 2.0))
 			dir = dir.rotated(spread)
 		
-		var proj = _create_projectile(weapon_id)
+		var proj = _create_projectile(weapon_id, proj_scene)
 		if proj:
 			proj.global_position = player_ref.global_position
 			proj.setup(dir, speed, damage, pierce, kb, area)
@@ -113,7 +159,9 @@ func _find_nearest_enemy(enemies: Array, index: int) -> Node2D:
 	)
 	return sorted[index % sorted.size()]
 
-func _create_projectile(_weapon_id: String) -> Node2D:
+func _create_projectile(weapon_id: String, proj_scene: String) -> Node2D:
 	var proj_node = Area2D.new()
 	proj_node.set_script(preload("res://scripts/projectile.gd"))
+	proj_node.weapon_id = weapon_id
+	proj_node.proj_type = proj_scene
 	return proj_node

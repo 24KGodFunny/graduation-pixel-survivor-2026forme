@@ -40,6 +40,7 @@ func _show_choices():
 	for c in choice_container.get_children():
 		c.queue_free()
 	
+	AudioManager.play_sfx("res://assets/audio/sfx_level_up.wav")
 	var choices = GameManager.get_level_up_choices()
 	for choice in choices:
 		var btn = Button.new()
@@ -66,6 +67,7 @@ func _show_choices():
 	is_showing = true
 
 func _on_choice_selected(choice: Dictionary):
+	AudioManager.play_sfx("res://assets/audio/sfx_click.wav")
 	visible = false
 	is_showing = false
 	GameManager.apply_level_up_choice(choice)

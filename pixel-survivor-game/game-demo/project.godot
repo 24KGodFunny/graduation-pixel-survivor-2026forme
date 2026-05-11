@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="ISEKAI FRONTLINE"
+config/name="像素幸存者"
 config/description="A Vampire Survivors-like survival shooter game"
 run/main_scene="res://scenes/splash_screen.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
@@ -29,6 +29,7 @@ GlobalSave="*res://scripts/autoload/global_save.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 DialogueManager="*res://scripts/autoload/dialogue_manager.gd"
 NetworkManager="*res://scripts/autoload/network_manager.gd"
+DisplayManager="*res://scripts/autoload/display_manager.gd"
 
 [display]
 

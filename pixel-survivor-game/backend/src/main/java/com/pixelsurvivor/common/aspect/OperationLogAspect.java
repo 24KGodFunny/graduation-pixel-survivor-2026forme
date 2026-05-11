@@ -71,7 +71,7 @@ public class OperationLogAspect {
             token = token.substring(7);
             try {
                 adminId = jwtUtil.getAdminId(token);
-                adminUsername = jwtUtil.parseToken(token).getSubject();
+                adminUsername = jwtUtil.parseToken(token).get("username", String.class);
             } catch (Exception ignored) {}
         }
 
@@ -95,7 +95,7 @@ public class OperationLogAspect {
             response = "序列化失败";
         }
 
-        String sql = "INSERT INTO admin_operation_log (admin_id, admin_username, module, operation, " +
+        String sql = "INSERT INTO t_admin_operation_log (admin_id, admin_username, module, operation, " +
                 "description, method, params, response, ip, error_msg, cost_time, created_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
