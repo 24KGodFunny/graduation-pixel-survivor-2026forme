@@ -9,13 +9,11 @@ signal player_leveled_up(new_level: int)
 signal player_damaged(current_hp: int, max_hp: int)
 signal player_healed(amount: int)
 signal enemy_killed(enemy_pos: Vector2, exp_amount: int)
-@warning_ignore("unused_signal")
-signal boss_spawned(boss_name: String)
-@warning_ignore("unused_signal")
-signal boss_defeated(boss_id: String)
 signal time_updated(seconds: int)
 signal weapon_acquired(weapon_id: String)
 signal passive_acquired(passive_id: String)
+signal boss_spawned(boss_name: String)
+signal boss_defeated(boss_id: String)
 signal boss_phase_started  # Emitted when normal phase ends, boss phase begins
 signal boss_intro_started  # Emitted after 3s intro, boss can spawn
 signal all_pickups_absorbed  # Emitted when all pickups have been absorbed
@@ -187,7 +185,6 @@ func start_game():
 	normal_phase_duration = map_data.get("normal_phase_duration", 300.0)
 	
 	current_state = GameState.PLAYING
-	AudioManager.play_bgm("battle")
 	game_started.emit()
 
 func pause_game():
@@ -456,7 +453,3 @@ func get_game_time_string() -> String:
 	var minutes := int(total_seconds / 60.0)
 	var seconds := total_seconds % 60
 	return "%02d:%02d" % [minutes, seconds]
-
-func get_player_position() -> Vector2:
-	# This will be set by the player node
-	return Vector2.ZERO

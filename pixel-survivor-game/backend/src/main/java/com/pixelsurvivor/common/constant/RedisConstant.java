@@ -39,6 +39,12 @@ public class RedisConstant {
     /** 签到记录 Bitmap */
     public static final String SIGN_RECORD = "sign:record:";
 
+    // ==================== 仪表盘 ====================
+    /** 仪表盘概览缓存 */
+    public static final String DASHBOARD_OVERVIEW = "dashboard:overview";
+    /** 每日统计缓存 */
+    public static final String DASHBOARD_DAILY = "dashboard:daily:";
+
     // ==================== 分布式锁 ====================
     /** 商品锁 */
     public static final String LOCK_SHOP_ITEM = "lock:shop:item:";
@@ -46,6 +52,8 @@ public class RedisConstant {
     public static final String LOCK_USER_PURCHASE = "lock:user:purchase:";
     /** 签到锁 */
     public static final String LOCK_SIGN = "lock:sign:";
+    /** 同步上传锁 */
+    public static final String LOCK_SYNC_UPLOAD = "lock:sync:upload:";
 
     // ==================== 布隆过滤器 ====================
     public static final String BLOOM_USER_ID = "bloom:user:id";

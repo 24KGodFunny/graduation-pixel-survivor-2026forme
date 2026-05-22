@@ -1,5 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+/**
+ * 路由配置
+ *
+ * 架构设计：
+ * - /login：独立路由，不嵌套在 AdminLayout 中（登录页不需要侧边栏和顶栏）
+ * - /：AdminLayout 作为父路由壳，所有管理页面作为其子路由
+ *   - 子路由通过 router-view 渲染在 AdminLayout 的 <el-main> 区域
+ *   - redirect 将根路径自动重定向到仪表盘
+ * - 所有页面组件使用动态 import（懒加载），按需分割打包
+ * - meta.title 用于 AdminLayout 顶栏动态显示页面标题
+ */
 const routes = [
   {
     path: '/login',
@@ -52,11 +63,21 @@ const routes = [
 ]
 
 const router = createRouter({
+  // createWebHistory 使用 HTML5 History API，需要服务器配置 fallback
   history: createWebHistory(),
   routes
 })
 
-// 路由守卫
+/**
+ * 全局前置路由守卫
+ *
+ * 认证逻辑：
+ * - 检查 localStorage 中是否存在 admin_token
+ * - 如果目标不是 /login 且没有 token，强制跳转到登录页
+ * - 如果有 token 或目标就是 /login，正常放行
+ *
+ * 注意：这里只是前端层面的简单鉴权，真正的权限校验在后端通过 JWT token 完成
+ */
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('admin_token')
   if (to.path !== '/login' && !token) {

@@ -22,6 +22,7 @@ public enum ResultCode {
     FORBIDDEN(403, "无权限"),
     NOT_FOUND(404, "资源不存在"),
     INTERNAL_ERROR(500, "服务器内部错误"),
+    TOO_MANY_REQUESTS(429, "请求过于频繁，请稍后再试"),
 
     // 用户相关 1001-1099
     USERNAME_EXISTS(1001, "用户名已存在"),

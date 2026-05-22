@@ -5,6 +5,7 @@
         <h3>👤 管理员列表</h3>
         <el-button type="primary" @click="showRegisterDialog">新增管理员</el-button>
       </div>
+      <!-- 管理员列表表格 -->
       <el-table :data="tableData" stripe v-loading="loading" class="pixel-table">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" label="用户名" width="150">
@@ -13,6 +14,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="180" />
+        <!-- 操作列：使用 el-popconfirm 内置确认框 -->
         <el-table-column label="操作" width="120">
           <template #default="{ row }">
             <el-popconfirm
@@ -21,6 +23,7 @@
               cancel-button-text="取消"
               @confirm="handleDelete(row)"
             >
+              <!-- 通过 reference 插槽放置触发按钮，admin 用户不可删除 -->
               <template #reference>
                 <el-button type="danger" size="small" :disabled="row.username === 'admin'">
                   删除
@@ -31,6 +34,7 @@
         </el-table-column>
       </el-table>
 
+      <!-- 分页：支持切换每页条数和页码 -->
       <div class="pagination">
         <el-pagination
           v-model:current-page="pagination.page"
@@ -56,6 +60,7 @@
         <el-form-item label="确认密码">
           <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请再次输入密码" show-password />
         </el-form-item>
+        <!-- 角色选择：普通管理员 vs 超级管理员 -->
         <el-form-item label="角色">
           <el-select v-model="registerForm.role" style="width: 100%">
             <el-option label="普通管理员" value="ADMIN" />
@@ -65,6 +70,7 @@
       </el-form>
       <template #footer>
         <el-button @click="registerDialogVisible = false">取消</el-button>
+        <!-- 注册按钮带 loading 状态防止重复提交 -->
         <el-button type="primary" :loading="registerLoading" @click="handleRegister">确定注册</el-button>
       </template>
     </el-dialog>
@@ -79,26 +85,30 @@ import { getAdmins, deleteAdmin, registerAdmin } from '../api/admin'
 const loading = ref(false)
 const tableData = ref([])
 
+// 分页参数：pageSize 支持 10/20/50 三条
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
 })
 
-// 注册管理员相关
+// 注册管理员相关状态
 const registerDialogVisible = ref(false)
 const registerLoading = ref(false)
 const registerForm = reactive({
   username: '',
   password: '',
   confirmPassword: '',
-  role: 'ADMIN'
+  role: 'ADMIN'  // 默认普通管理员
 })
 
 onMounted(() => {
   loadData()
 })
 
+/**
+ * 加载管理员列表（分页）
+ */
 async function loadData() {
   loading.value = true
   try {
@@ -117,6 +127,10 @@ async function loadData() {
   }
 }
 
+/**
+ * 删除管理员
+ * 由 el-popconfirm 的 @confirm 事件触发（用户已点击确认）
+ */
 async function handleDelete(row) {
   try {
     const res = await deleteAdmin(row.id)
@@ -131,6 +145,7 @@ async function handleDelete(row) {
   }
 }
 
+/** 打开注册对话框：每次打开前重置表单为初始状态 */
 function showRegisterDialog() {
   registerForm.username = ''
   registerForm.password = ''
@@ -139,7 +154,13 @@ function showRegisterDialog() {
   registerDialogVisible.value = true
 }
 
+/**
+ * 注册新管理员
+ * 前端校验三步：非空 -> 密码一致性 -> 密码长度 >= 6
+ * 错误由 Axios 响应拦截器统一处理
+ */
 async function handleRegister() {
+  // 前端基础校验
   if (!registerForm.username || !registerForm.password) {
     ElMessage.warning('请输入用户名和密码')
     return
@@ -161,9 +182,9 @@ async function handleRegister() {
     })
     ElMessage.success('管理员注册成功')
     registerDialogVisible.value = false
-    loadData()
+    loadData()  // 刷新列表
   } catch (e) {
-    // error handled by interceptor
+    // 错误已由 request.js 的响应拦截器统一处理（ElMessage.error + 401 跳转）
   } finally {
     registerLoading.value = false
   }
@@ -205,12 +226,14 @@ async function handleRegister() {
   margin-top: 16px;
 }
 
+/* 分页组件暗色主题定制 */
 .pagination :deep(.el-pagination) {
   --el-pagination-bg-color: transparent;
   --el-pagination-text-color: #a098b8;
   --el-pagination-button-bg-color: rgba(30, 25, 60, 0.6);
 }
 
+/* 表格深色主题 */
 .pixel-table :deep(.el-table__header th) {
   background: rgba(30, 25, 60, 0.8) !important;
   color: #ffffff;

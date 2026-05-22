@@ -1,0 +1,3 @@
+res://scripts/enemy_spawner.gd
+res://scripts/game_over_ui.gd
+res://scripts/autoload/game_manager.gd

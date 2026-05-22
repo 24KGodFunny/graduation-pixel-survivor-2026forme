@@ -32,6 +32,10 @@ public class AdminController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
 
+    /**
+     * 管理员登录
+     * 验证用户名密码，返回 JWT Token 和管理员信息
+     */
     @PostMapping("/login")
     public Result<?> login(@RequestBody Map<String, String> params) {
         String username = params.get("username");
@@ -80,6 +84,9 @@ public class AdminController {
 
     // ========== 用户管理 ==========
 
+    /**
+     * 分页获取用户列表
+     */
     @GetMapping("/users")
     public Result<IPage<User>> getUsers(
             @RequestParam(defaultValue = "1") int page,
@@ -87,6 +94,9 @@ public class AdminController {
         return Result.success(userService.page(new Page<>(page, size)));
     }
 
+    /**
+     * 封禁用户：将用户状态置为 1（封禁）
+     */
     @PutMapping("/users/{id}/ban")
     @OperationLog(module = "用户管理", operation = "封禁", description = "封禁用户")
     public Result<?> banUser(@PathVariable Long id) {
@@ -96,6 +106,9 @@ public class AdminController {
         return Result.success("用户已封禁");
     }
 
+    /**
+     * 解封用户：将用户状态置为 0（正常）
+     */
     @PutMapping("/users/{id}/unban")
     @OperationLog(module = "用户管理", operation = "解封", description = "解封用户")
     public Result<?> unbanUser(@PathVariable Long id) {
@@ -143,6 +156,9 @@ public class AdminController {
 
     // ========== 操作日志 ==========
 
+    /**
+     * 分页查询操作日志，支持按管理员用户名、模块、日期范围筛选
+     */
     @GetMapping("/logs")
     public Result<IPage<AdminOperationLog>> getLogs(
             @RequestParam(defaultValue = "1") int page,
@@ -156,14 +172,20 @@ public class AdminController {
 
     // AdminController.java 中，在仪表盘相关方法区域添加
 
+    /**
+     * 仪表盘统计数据（前端兼容接口，复用 getDashboardOverview）
+     */
     @GetMapping("/dashboard/stats")
     public Result<Map<String, Object>> getDashboardStats() {
-        return getDashboardOverview(); // 复用现有方法
+        return getDashboardOverview();
     }
 
+    /**
+     * 每日趋势数据（前端兼容接口，复用 getDailyStats）
+     */
     @GetMapping("/dashboard/daily")
     public Result<List<DailyStatsVO>> getDaily(@RequestParam(defaultValue = "7d") String range) {
-        return getDailyStats(range);   // 复用现有方法
+        return getDailyStats(range);
     }
 
     // ==================== 用户数据管理 ====================

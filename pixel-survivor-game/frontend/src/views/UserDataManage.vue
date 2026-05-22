@@ -13,7 +13,7 @@
       </el-form>
     </el-card>
 
-    <!-- 用户信息卡片 -->
+    <!-- 用户信息卡片：仅当 userData 不为 null 时显示 -->
     <el-card v-if="userData" class="user-card">
       <template #header>
         <div class="card-header">
@@ -26,12 +26,13 @@
         </div>
       </template>
 
-      <!-- 基本信息 -->
+      <!-- 基本信息：使用 el-descriptions 描述列表展示 -->
       <el-descriptions :column="3" border class="user-info">
         <el-descriptions-item label="用户ID">{{ userData.user.id }}</el-descriptions-item>
         <el-descriptions-item label="用户名">{{ userData.user.username }}</el-descriptions-item>
         <el-descriptions-item label="昵称">{{ userData.user.nickname || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
+          <!-- status == 1 为封禁（红色），否则正常（绿色） -->
           <el-tag :type="userData.user.status === 1 ? 'danger' : 'success'">
             {{ userData.user.status === 1 ? '封禁' : '正常' }}
           </el-tag>
@@ -41,7 +42,7 @@
       </el-descriptions>
     </el-card>
 
-    <!-- 存档数据卡片 -->
+    <!-- 存档数据卡片：仅当 userData 存在且包含 saveData 时显示 -->
     <el-card v-if="userData && userData.saveData" class="save-data-card">
       <template #header>
         <div class="card-header">
@@ -60,7 +61,7 @@
         </el-descriptions-item>
       </el-descriptions>
 
-      <!-- 角色信息 -->
+      <!-- 角色信息表格 -->
       <h4 class="section-title">👤 角色</h4>
       <el-table :data="characterTableData" border class="section-content">
         <el-table-column prop="charCode" label="角色编码" width="120" />
@@ -84,7 +85,7 @@
         </el-table-column>
       </el-table>
 
-      <!-- 地图信息 -->
+      <!-- 地图信息表格 -->
       <h4 class="section-title">🗺️ 地图</h4>
       <el-table :data="mapTableData" border class="section-content">
         <el-table-column prop="mapCode" label="地图编码" width="180" />
@@ -110,7 +111,7 @@
         </el-table-column>
       </el-table>
 
-      <!-- 成就信息 -->
+      <!-- 成就信息：用 tags 展示已解锁成就列表 -->
       <h4 class="section-title">🏆 成就</h4>
       <div class="section-content">
         <el-tag
@@ -121,6 +122,7 @@
         >
           {{ achievement }}
         </el-tag>
+        <!-- 无成就时显示空状态 -->
         <el-empty
           v-if="!userData.saveData.unlocked_achievements || userData.saveData.unlocked_achievements.length === 0"
           description="暂无成就"
@@ -129,7 +131,7 @@
       </div>
     </el-card>
 
-    <!-- 未搜索时的提示 -->
+    <!-- 未搜索时的空状态提示 -->
     <el-card v-if="!userData" class="empty-card">
       <el-empty description="请输入用户名查询用户数据" />
     </el-card>
@@ -150,7 +152,7 @@
     <!-- 编辑存档数据对话框 -->
     <el-dialog v-model="saveDataDialogVisible" title="编辑存档数据" width="700px">
       <el-form :model="saveDataForm" label-width="100px">
-        <!-- 货币 -->
+        <!-- 货币编辑区 -->
         <el-divider content-position="left">💰 货币</el-divider>
         <el-form-item label="金币">
           <el-input-number v-model="saveDataForm.coins" :min="0" :max="999999999" />
@@ -159,13 +161,14 @@
           <el-input-number v-model="saveDataForm.diamonds" :min="0" :max="999999999" />
         </el-form-item>
 
-        <!-- 角色 -->
+        <!-- 角色解锁编辑区：动态遍历 editCharacters 数组 -->
         <el-divider content-position="left">👤 角色解锁</el-divider>
         <el-form-item
           v-for="char in editCharacters"
           :key="char.code"
           :label="char.charName || char.code"
         >
+          <!-- 解锁开关 + 等级输入（仅解锁时显示） -->
           <el-switch v-model="char.unlocked" active-text="已解锁" inactive-text="未解锁" style="margin-right: 16px;" />
           <el-input-number
             v-if="char.unlocked"
@@ -177,7 +180,7 @@
           />
         </el-form-item>
 
-        <!-- 地图 -->
+        <!-- 地图状态编辑区：动态遍历 editMaps 数组 -->
         <el-divider content-position="left">🗺️ 地图状态</el-divider>
         <el-form-item
           v-for="map in editMaps"
@@ -202,12 +205,18 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUserDetailByUsername, updateUser, updateSaveData, deleteUser } from '../api/admin'
 
 // ==================== 搜索 ====================
+
 const searchForm = reactive({
   username: ''
 })
 
+// 当前查询到的用户详细数据（包含 user 和 saveData），null 表示尚未查询
 const userData = ref(null)
 
+/**
+ * 按用户名搜索用户
+ * 流程：校验输入 -> 调用 API -> 成功时构建角色和地图表格数据
+ */
 const handleSearch = async () => {
   if (!searchForm.username) {
     ElMessage.warning('请输入用户名')
@@ -217,6 +226,7 @@ const handleSearch = async () => {
     const res = await getUserDetailByUsername(searchForm.username)
     if (res.code === 200) {
       userData.value = res.data
+      // 将后端返回的 JSON 数据转换为表格可用的格式
       buildCharacterTable()
       buildMapTable()
     } else {
@@ -227,14 +237,26 @@ const handleSearch = async () => {
   }
 }
 
+/** 重置搜索：清空输入框和查询结果 */
 const handleReset = () => {
   searchForm.username = ''
   userData.value = null
 }
 
 // ==================== 角色表格数据（展示用） ====================
+
 const characterTableData = ref([])
 
+/**
+ * 将存档数据中的角色信息转换为表格格式
+ *
+ * 数据来源：
+ * - characterDefinitions：角色定义表（所有角色元数据）
+ * - unlocked_characters：已解锁角色编码数组
+ * - character_levels：角色编码 -> 等级的映射对象
+ *
+ * 逻辑：以角色定义表为基准遍历，通过解锁数组判断每个角色的解锁状态
+ */
 const buildCharacterTable = () => {
   if (!userData.value || !userData.value.saveData) {
     characterTableData.value = []
@@ -255,8 +277,13 @@ const buildCharacterTable = () => {
 }
 
 // ==================== 地图表格数据（展示用） ====================
+
 const mapTableData = ref([])
 
+/**
+ * 将存档数据中的地图信息转换为表格格式
+ * 逻辑与 buildCharacterTable 类似：以 mapDefinitions 为基准，交叉比对解锁/通关状态
+ */
 const buildMapTable = () => {
   if (!userData.value || !userData.value.saveData) {
     mapTableData.value = []
@@ -276,20 +303,24 @@ const buildMapTable = () => {
 }
 
 // ==================== 编辑对话框专用数据 ====================
+// 这两个数组与展示表格独立，确保编辑取消后不影响展示数据
 const editCharacters = ref([])
 const editMaps = ref([])
 
 // ==================== 编辑用户基本信息 ====================
+
 const userDialogVisible = ref(false)
 const userForm = reactive({
   nickname: ''
 })
 
+/** 打开编辑基本信息对话框：预填当前昵称 */
 const handleEditUser = () => {
   userForm.nickname = userData.value.user.nickname || ''
   userDialogVisible.value = true
 }
 
+/** 提交基本信息更新 */
 const submitUserForm = async () => {
   try {
     const res = await updateUser(userData.value.user.id, {
@@ -308,12 +339,19 @@ const submitUserForm = async () => {
 }
 
 // ==================== 编辑存档数据 ====================
+
 const saveDataDialogVisible = ref(false)
 const saveDataForm = reactive({
   coins: 0,
   diamonds: 0
 })
 
+/**
+ * 打开编辑存档数据对话框
+ *
+ * 关键设计：创建 editCharacters 和 editMaps 作为对话框的独立数据副本
+ * 这样用户在对话框中修改后若点击取消，不会污染 pageTableData / mapTableData
+ */
 const handleEditSaveData = () => {
   const saveData = userData.value.saveData
   saveDataForm.coins = saveData.coins ?? 0
@@ -329,6 +367,7 @@ const handleEditSaveData = () => {
     unlocked: unlocked.includes(def.charCode),
     level: levels[def.charCode] || 1
   }))
+  // 浅拷贝地图表格数据作为编辑副本
   editMaps.value = mapTableData.value.map(m => ({
     mapCode: m.mapCode,
     mapName: m.mapName,
@@ -340,6 +379,16 @@ const handleEditSaveData = () => {
   saveDataDialogVisible.value = true
 }
 
+/**
+ * 提交存档数据更新
+ *
+ * 核心逻辑：从对话框的编辑数组（editCharacters / editMaps）中收集数据
+ * 1. 筛选出已解锁的角色 -> unlockedCharacters 数组
+ * 2. 构建角色等级映射对象 characterLevels {角色编码: 等级}
+ * 3. 筛选出已解锁的地图 -> unlockedMaps 数组
+ * 4. 筛选出已通关的地图 -> completedMaps 数组
+ * 5. 连同货币数据一起提交到后端
+ */
 const submitSaveDataForm = async () => {
   try {
     // 从编辑对话框的独立数据源收集
@@ -382,6 +431,14 @@ const submitSaveDataForm = async () => {
 }
 
 // ==================== 删除用户 ====================
+
+/**
+ * 删除用户流程：
+ * 1. 弹出警告确认框
+ * 2. 调用 deleteUser API
+ * 3. 成功后清空 userData（回到空状态）
+ * 4. 用户点击取消时，catch 中忽略 'cancel' 类型错误
+ */
 const handleDeleteUser = async () => {
   try {
     await ElMessageBox.confirm(
@@ -392,11 +449,12 @@ const handleDeleteUser = async () => {
     const res = await deleteUser(userData.value.user.id)
     if (res.code === 200) {
       ElMessage.success('用户已删除')
-      userData.value = null
+      userData.value = null  // 清空数据回到空状态
     } else {
       ElMessage.error(res.message || '删除失败')
     }
   } catch (error) {
+    // ElMessageBox.confirm 取消时返回 'cancel'，不需要错误提示
     if (error !== 'cancel') {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }
@@ -443,6 +501,7 @@ const handleDeleteUser = async () => {
   margin-bottom: 10px;
 }
 
+/* 成就标签间距 */
 .achievement-tag {
   margin-right: 8px;
   margin-bottom: 8px;

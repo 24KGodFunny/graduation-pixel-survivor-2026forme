@@ -16,9 +16,6 @@ var selected_char_id: String = ""
 # 防止重复下载云存档的标志（每次登录只下载一次）
 static var _cloud_downloaded: bool = false
 
-# 当前弹窗引用（避免多个排他窗口冲突）
-var _current_dialog: Window = null
-
 func _ready():
 	# 确保菜单BGM持续播放
 	if AudioManager:
@@ -601,23 +598,6 @@ func _on_login_success(_data: Dictionary):
 	if not _cloud_downloaded:
 		_cloud_downloaded = true
 		NetworkManager.sync_download()
-
-## 统一弹窗辅助方法（关闭旧弹窗再弹新弹窗，避免排他窗口冲突）
-func _show_dialog(title: String, text: String, size: Vector2i = Vector2i(300, 100)):
-	if _current_dialog and is_instance_valid(_current_dialog):
-		_current_dialog.queue_free()
-	var dialog = AcceptDialog.new()
-	dialog.title = title
-	dialog.dialog_text = text
-	dialog.ok_button_text = "确定"
-	add_child(dialog)
-	dialog.popup_centered(size)
-	_current_dialog = dialog
-	dialog.confirmed.connect(func():
-		if _current_dialog == dialog:
-			_current_dialog = null
-		dialog.queue_free()
-	)
 
 func _add_codex_button():
 	# 在返回按钮旁边添加图鉴按钮

@@ -1,5 +1,6 @@
 package com.pixelsurvivor.controller;
 
+import com.pixelsurvivor.common.annotation.RateLimit;
 import com.pixelsurvivor.common.result.Result;
 import com.pixelsurvivor.common.util.JwtUtil;
 import com.pixelsurvivor.entity.User;
@@ -25,6 +26,11 @@ public class GameUserController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
 
+    /**
+     * 用户登录
+     * 验证用户名密码，返回 JWT Token（有效期2小时）
+     */
+    @RateLimit(window = 60, maxRequests = 20)
     @PostMapping("/login")
     public Result<?> login(@RequestBody Map<String, String> params) {
         String username = params.get("username");
@@ -38,6 +44,10 @@ public class GameUserController {
         return Result.success(data);
     }
 
+    /**
+     * 用户注册
+     * 创建新账号，默认赠送 500 游戏币 + 50 钻石
+     */
     @PostMapping("/register")
     public Result<?> register(@RequestBody Map<String, String> params) {
         String username = params.get("username");
@@ -51,6 +61,10 @@ public class GameUserController {
         return Result.success("注册成功", data);
     }
 
+    /**
+     * 获取当前登录用户信息
+     * userId 由 GameAuthInterceptor 从 JWT 中解析注入
+     */
     @GetMapping("/info")
     public Result<User> getUserInfo(@RequestAttribute Long userId) {
         User user = userService.getUserById(userId);
@@ -58,6 +72,10 @@ public class GameUserController {
         return Result.success(user);
     }
 
+    /**
+     * 修改用户信息（昵称、头像等）
+     * userId 由 GameAuthInterceptor 从 JWT 中解析注入
+     */
     @PutMapping("/info")
     public Result<?> updateInfo(@RequestAttribute Long userId, @RequestBody Map<String, String> params) {
         User user = userService.getById(userId);

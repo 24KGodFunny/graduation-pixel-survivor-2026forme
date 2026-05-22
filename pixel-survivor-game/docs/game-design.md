@@ -1,279 +1,321 @@
-## 📁 game-demo 项目文件夹结构及功能说明
+# 游戏设计文档
 
-```
-pixel-survivor-game/game-demo/
-│
-├── icon.svg                      # 项目图标（Godot应用图标）
-├── project.godot                 # Godot 项目配置文件（分辨率、自动加载、输入映射等）
-│
-├── assets/                       # ★ 所有美术/音频资源根目录
-│   ├── audio/                    # 音效与背景音乐
-│   │   ├── bgm_battle.wav        #   战斗BGM（共3个变体）
-│   │   ├── bgm_battle1.wav
-│   │   ├── bgm_battle2.wav
-│   │   ├── bgm_battle3.wav
-│   │   ├── bgm_boss.wav          #   Boss战BGM
-│   │   ├── bgm_gameover.wav      #   游戏结束BGM
-│   │   ├── bgm_menu.wav          #   菜单BGM
-│   │   ├── bgm_victory.wav       #   胜利BGM
-│   │   ├── sfx_boss_appear.wav   #   Boss出场音效
-│   │   ├── sfx_boss_intro.wav    #   Boss介绍音效
-│   │   ├── sfx_coin.wav          #   拾取金币音效
-│   │   ├── sfx_confirm.wav       #   确认操作音效
-│   │   ├── sfx_death.wav         #   玩家死亡音效
-│   │   ├── sfx_enemy_die.wav     #   敌人死亡音效
-│   │   ├── sfx_explosion.wav     #   爆炸音效
-│   │   ├── sfx_gameover.wav      #   游戏结束音效
-│   │   ├── sfx_heal.wav          #   治疗音效
-│   │   ├── sfx_hit.wav           #   命中音效
-│   │   ├── sfx_levelup.wav       #   升级音效
-│   │   ├── sfx_pickup.wav        #   拾取道具音效
-│   │   ├── sfx_player_hit.wav    #   玩家受伤音效
-│   │   ├── sfx_select.wav        #   选择音效
-│   │   ├── sfx_shoot.wav         #   射击音效
-│   │   └── sfx_victory.wav       #   胜利音效
-│   │
-│   ├── fonts/                    # 字体目录（当前为空，可能使用系统默认字体）
-│   │
-│   └── images/                   # ★ 所有图片资源（重点替换区域）
-│       ├── characters/           # 【角色精灵图】
-│       │   ├── player_maphy.png      # 角色：玛菲
-│       │   ├── player_minami.png     # 角色：美波
-│       │   ├── player_yuria.png      # 角色：尤利娅
-│       │   ├── player_sakura.png     # 角色：樱
-│       │   ├── player_kanna.png      # 角色：栞那
-│       │   ├── player_kiko.png       # 角色：绮子
-│       │   ├── player_kureha.png     # 角色：暮叶
-│       │   ├── player_miho.png       # 角色：美穗
-│       │   └── player_mika.png       # 角色：米卡
-│       │
-│       ├── bosses/               # 【Boss精灵图】
-│       │   ├── boss_sakura.png       # Boss：樱
-│       │   ├── boss_miho.png         # Boss：美穗
-│       │   ├── boss_kanna.png        # Boss：栞那
-│       │   ├── boss_kiko.png         # Boss：绮子
-│       │   └── boss_kureha.png       # Boss：暮叶
-│       │
-│       ├── enemies/              # 【敌人精灵图】
-│       │   ├── brainless_basic.png   # 普通敌人
-│       │   ├── brainless_fast.png    # 快速敌人
-│       │   ├── brainless_tank.png    # 重装敌人
-│       │   └── brainless_ranged.png  # 远程敌人
-│       │
-│       ├── weapons/              # 【武器精灵图/弹道图】
-│       │   ├── axe.png               # 消防斧
-│       │   ├── baseball.png          # 棒球
-│       │   ├── bullet_pistol.png     # 手枪子弹
-│       │   ├── bullet_sniper.png     # 狙击子弹
-│       │   ├── dagger.png            # 飞刀
-│       │   ├── drone.png             # 无人机
-│       │   ├── fire.png              # 喷火器
-│       │   ├── fireroad.png          # 火焰路径
-│       │   ├── grenade.png           # 手榴弹
-│       │   ├── holywater.png         # 圣水
-│       │   ├── matrix.png            # 矩阵
-│       │   ├── missile.png           # 导弹
-│       │   ├── orbital.png           # 轨道炮
-│       │   ├── pulse.png             # 脉冲
-│       │   ├── star.png              # 星星
-│       │   └── talisman.png          # 符咒
-│       │
-│       ├── effects/              # 【特效精灵图】
-│       │   ├── death.png             # 死亡特效
-│       │   ├── explosion.png         # 爆炸特效
-│       │   ├── heal.png              # 治疗特效
-│       │   ├── hit.png               # 命中特效
-│       │   └── levelup.png           # 升级特效
-│       │
-│       ├── items/                # 【道具精灵图】
-│       │   ├── chest.png             # 宝箱
-│       │   ├── coin.png              # 金币
-│       │   ├── exp_gem_blue.png      # 蓝色经验宝石
-│       │   ├── exp_gem_green.png     # 绿色经验宝石
-│       │   ├── exp_gem_red.png       # 红色经验宝石
-│       │   ├── heal_orb.png          # 治疗球
-│       │   └── passive_*.png (×16)   # 16个被动道具精灵图
-│       │
-│       ├── pickups/              # 【拾取物精灵图】
-│       │   ├── chest.png             # 宝箱
-│       │   ├── coin.png              # 金币
-│       │   ├── exp_gem.png           # 经验宝石
-│       │   └── heal.png              # 治疗球
-│       │
-│       ├── maps/                 # 【地图瓦片贴图】
-│       │   ├── tile_stone.png        # 废弃城市（石质）
-│       │   ├── tile_grass.png        # 公路（草地）
-│       │   ├── tile_sand.png         # 荒原（沙地）
-│       │   ├── tile_forest.png       # 森林
-│       │   ├── tile_dark.png         # 暗色瓦片（备用）
-│       │   ├── tile_dirt.png         # 泥土瓦片（备用）
-│       │   └── tile_road.png         # 道路瓦片（备用）
-│       │
-│       └── ui/                   # 【UI界面素材】
-│           ├── button_normal.png     # 按钮-普通状态
-│           ├── button_hover.png      # 按钮-悬停状态
-│           ├── button_pressed.png    # 按钮-按下状态
-│           ├── coin_icon.png         # 金币图标
-│           ├── exp_bar.png           # 经验条
-│           ├── health_bar.png        # 血条
-│           ├── heart_icon.png        # 心形图标
-│           ├── logo.png              # 游戏Logo
-│           ├── panel_bg.png          # 面板背景
-│           ├── icons/
-│           │   ├── weapons/          # 武器图标（16个）
-│           │   │   └── icon_weapon_*.png
-│           │   └── passives/         # 被动道具图标（16个）
-│           │       └── icon_passive_*.png
-│           └── portraits/            # 角色头像/立绘（9个）
-│               └── portrait_*.png
-│
-├── scenes/                       # Godot 场景文件（.tscn）
-│   ├── game.tscn                     # 主游戏战斗场景
-│   ├── main_menu.tscn                # 主菜单场景
-│   ├── map_select.tscn               # 地图选择场景
-│   ├── splash_screen.tscn            # 启动画面场景
-│   └── title_screen.tscn             # 标题屏幕场景
-│
-└── scripts/                      # GDScript 脚本文件
-    ├── autoload/                 # 【全局自动加载脚本】
-    │   ├── audio_manager.gd          # 音频管理器（BGM/SFX播放控制）
-    │   ├── database.gd              # ★ 游戏数据库（所有角色/武器/敌人/Boss/地图数据定义）
-    │   ├── dialogue_manager.gd       # 对话管理器
-    │   ├── display_manager.gd        # 显示管理器（窗口/分辨率）
-    │   ├── game_manager.gd           # 游戏管理器（核心游戏流程）
-    │   ├── global_save.gd            # 全局存档
-    │   ├── network_manager.gd        # 网络管理器（后端通信）
-    │   └── save_manager.gd           # 存档管理器
-    │
-    ├── utils/                    # 【工具脚本】
-    │   └── anim_helper.gd            # 动画辅助工具
-    │
-    ├── player.gd                 # 玩家角色控制
-    ├── enemy_base.gd             # 敌人基础行为
-    ├── enemy_spawner.gd          # 敌人生成器
-    ├── boss.gd                   # Boss行为逻辑
-    ├── boss_health_bar.gd        # Boss血条UI
-    ├── projectile.gd             # 投射物/弹道
-    ├── weapon_manager.gd         # 武器管理器
-    ├── melee_attack.gd           # 近战攻击
-    ├── pickup.gd                 # 拾取物逻辑
-    ├── coin_pickup.gd            # 金币拾取
-    ├── damage_number.gd          # 伤害数字显示
-    ├── minimap.gd                # 小地图
-    ├── hud.gd                    # HUD界面（血条/经验条/金币等）
-    ├── level_up_ui.gd            # 升级选择界面
-    ├── codex_ui.gd               # 图鉴界面
-    ├── game_over_ui.gd           # 游戏结束界面
-    ├── victory_settlement_ui.gd  # 胜利结算界面
-    ├── pause_menu.gd             # 暂停菜单
-    ├── settings_ui.gd            # 设置界面
-    ├── main_menu.gd              # 主菜单逻辑
-    ├── map_select.gd             # 地图选择逻辑
-    ├── title_screen.gd           # 标题画面逻辑
-    ├── splash_screen.gd          # 启动画面逻辑
-    ├── login_ui.gd               # 登录界面
-    └── dialogue_ui.gd            # 对话界面
-```
+## 1. 项目概述
 
----
+**Pixel Survivor** 是一款像素风 Roguelike 类幸存者游戏，参考《Vampire Survivors》核心玩法，玩家选择角色后在开放地图中生存，武器自动攻击靠近的敌人，击败敌人获取经验升级，选择 Buff 强化自身，最终击败 Boss 获得胜利。
 
-## 🎨 美术资源替换指南与推荐
+- **游戏引擎**: Godot 4
+- **脚本语言**: GDScript
+- **游戏类型**: 俯视角 2D 像素 Roguelike 幸存者
+- **操作方式**: WASD / 方向键 移动，武器自动攻击
 
-### 一、资源引用方式
+## 2. 角色系统
 
-所有美术资源路径都硬编码在 `scripts/autoload/database.gd` 中，使用 Godot 的 `res://` 路径格式。替换资源时 **只需同名覆盖文件即可**，无需修改代码。
+游戏共有 **9 个可玩角色**，每个角色拥有不同的基础属性、初始武器和被动技能。
 
-### 二、各类别替换建议
+### 2.1 角色属性说明
 
-#### 1. 🧑 角色精灵图 (`assets/images/characters/`)
-| 文件 | 当前尺寸建议 | 替换建议 |
-|------|-------------|---------|
-| `player_*.png` (9个) | 32×32 或 48×48 像素 | **推荐使用 Spritesheet（序列帧图）**，将角色的行走/待机/攻击动画帧水平排列。保持文件名不变，替换后在 Godot 中重新配置 SpriteFrames |
-
-**推荐资源来源：**
-- [itch.io - Pixel Character Sprites](https://itch.io/game-assets/tag-characters/tag-pixel-art)
-- [OpenGameArt](https://opengart.org)
-- 建议尺寸：**32×32** 或 **48×48** 每帧，风格统一为俯视角像素风格
-
-#### 2. 👹 敌人精灵图 (`assets/images/enemies/`)
-| 文件 | 替换建议 |
-|------|---------|
-| `brainless_basic/fast/tank/ranged.png` (4个) | 像素风怪物精灵，建议 32×32，用不同颜色/造型区分类型 |
-
-**推荐风格：** 无脑僵尸/史莱姆/骷髅等经典俯视角敌人
-
-#### 3. 🐉 Boss精灵图 (`assets/images/bosses/`)
-| 文件 | 替换建议 |
-|------|---------|
-| `boss_*.png` (5个) | 建议 **64×64** 或 **96×96** 像素，需要比普通敌人明显更大、更有气势 |
-
-**推荐：** 用角色的"暴走/暗黑"版本造型，与角色形成对比
-
-#### 4. ⚔️ 武器精灵图 (`assets/images/weapons/`)
-| 文件 | 替换建议 |
-|------|---------|
-| `bullet_pistol.png`, `bullet_sniper.png` | 小尺寸弹道图，建议 **8×8** 或 **16×16** |
-| `axe.png`, `dagger.png`, `baseball.png` | 武器本体图，建议 **16×16** 或 **24×24** |
-| `fire.png`, `fireroad.png` | 火焰特效，建议 **16×16**，可使用 SpriteSheet |
-| `drone.png`, `missile.png`, `orbital.png` | 科技感武器，建议 **16×16 ~ 24×24** |
-| `talisman.png`, `holywater.png`, `star.png` | 魔法系武器，建议 **16×16**，带发光效果 |
-| `grenade.png`, `matrix.png`, `pulse.png` | 爆炸/范围系，建议 **16×16** |
-
-#### 5. 🗺️ 地图瓦片 (`assets/images/maps/`)
-| 文件 | 替换建议 |
-|------|---------|
-| `tile_stone.png` → 废弃城市 | 石质/水泥/废墟纹理 |
-| `tile_grass.png` → 公路 | 草地/泥土混合 |
-| `tile_sand.png` → 荒原 | 沙漠/干旱地面 |
-| `tile_forest.png` → 森林 | 深色草地/苔藓 |
-
-**关键要求：** 必须是 **可无缝平铺（seamless tileable）** 的纹理，建议 **16×16** 或 **32×32**
-
-#### 6. 📦 道具与拾取物 (`assets/images/items/` + `assets/images/pickups/`)
-- 经验宝石（蓝/绿/红）：建议 **8×8 ~ 16×16**，用颜色区分价值
-- 金币：**8×8 ~ 16×16**，金黄色圆形
-- 治疗球：**16×16**，绿色/粉红色发光球
-- 被动道具图标（16个）：**16×16**，每个代表一种属性（护甲、伤害、速度等）
-
-#### 7. ✨ 特效图 (`assets/images/effects/`)
-| 文件 | 替换建议 |
-|------|---------|
-| `death.png`, `explosion.png`, `hit.png` | **SpriteSheet 序列帧**，16×16 ~ 32×32 每帧 |
-| `heal.png`, `levelup.png` | 上升/扩散动画序列帧 |
-
-#### 8. 🖼️ UI素材 (`assets/images/ui/`)
-| 文件 | 替换建议 |
-|------|---------|
-| `button_*.png` (3个状态) | 按钮 9-patch 图，建议 **128×32** 或 **96×32** |
-| `health_bar.png`, `exp_bar.png` | 进度条贴图，**256×16** 或 **128×8** |
-| `coin_icon.png`, `heart_icon.png` | 小图标 **16×16 ~ 24×24** |
-| `logo.png` | 游戏Logo，**256×128** 或更大 |
-| `panel_bg.png` | 面板背景，**256×256** 9-patch 格式 |
-| `icons/weapons/icon_weapon_*.png` (16个) | 武器图标 **32×32** |
-| `icons/passives/icon_passive_*.png` (16个) | 被动道具图标 **32×32** |
-| `portraits/portrait_*.png` (9个) | 角色头像 **64×64** 或 **96×96** |
-
-### 三、替换操作流程
-
-1. **准备新素材**：确保与原图相同的文件名和格式（.png）
-2. **直接覆盖**：将新图片放入对应目录，覆盖旧文件（同名替换）
-3. **删除 .import 文件**：删除同名的 `.png.import` 文件，让 Godot 重新导入
-4. **在 Godot 编辑器中打开项目**：Godot 会自动重新导入所有资源
-5. **检查动画配置**：如果使用了 SpriteSheet/AnimatedSprite，需要在 Godot 中重新配置帧动画
-6. **测试运行**：检查所有场景中资源显示是否正常
-
-### 四、免费像素美术资源推荐网站
-
-| 网站 | 说明 |
+| 属性 | 说明 |
 |------|------|
-| **[itch.io/game-assets](https://itch.io/game-assets/free/tag-pixel-art)** | 最大的免费游戏素材平台 |
-| **[OpenGameArt.org](https://opengart.org)** | 开源游戏素材库 |
-| **[Kenney.nl](https://kenney.nl)** | 高质量免费游戏素材 |
-| **[itch.io - Vampire Survivors Style](https://itch.io/game-assets/tag-pixel-art/tag-vampire-survivors)** | 类幸存者风格素材 |
-| **[Craftpix.net](https://craftpix.net/freebies/)** | 部分免费素材 |
+| 生命上限 (max_hp) | 角色最大生命值 |
+| 移动速度 (speed) | 角色移动速度 (像素/秒) |
+| 护甲 (armor) | 减伤值 |
+| 伤害倍率 (damage_mult) | 所有武器伤害的倍率 |
+| 冷却倍率 (cooldown_mult) | 武器冷却时间的倍率 (越低越快) |
+| 暴击率 (crit_chance) | 暴击概率 |
+| 暴击伤害 (crit_damage) | 暴击时的伤害倍率 |
+| 幸运值 (luck) | 影响掉落概率和选项质量 |
+| 成长值 (growth) | 经验获取倍率 |
+| 贪婪值 (greed) | 金币获取倍率 |
+| 拾取范围 (magnet_range) | 自动拾取经验宝石的范围 |
 
-### 五、特别注意
+### 2.2 角色一览
 
-- `database.gd` 中还引用了一个 `boss_butcher.png`，但在 bosses 目录中 **实际不存在** 该文件，可能需要补充
-- `player_mika.png` 存在于 characters 目录中，但 `database.gd` 中引用了它（路径 `res://assets/images/characters/player_mika.png`）
-- 音频文件（`.wav`）也可以替换，保持文件名不变即可，推荐使用 `.ogg` 格式以减小文件体积
+| ID | 名称 | 类型 | HP | 速度 | 初始武器 | 被动 | 解锁方式 |
+|----|------|------|-----|------|---------|------|---------|
+| maphy | 玛菲 | 标准型 | 100 | 200 | 手枪 | - | 默认解锁 |
+| minami | 美波 | 高速型 | 80 | 260 | 飞刀 | 移速提升 | 默认解锁 |
+| yuria | 尤利娅 | 重装型 | 150 | 170 | 消防斧 | 护甲 | 默认解锁 |
+| sakura | 樱 | 攻击型 | 90 | 200 | 狙击步枪 | 力量 | 通关公路 |
+| kanna | 栞那 | 魔法型 | 85 | 210 | 符咒 | 冷却缩减 | 500金币 |
+| kiko | 绮子 | 幸运型 | 90 | 200 | 棒球 | 幸运 | 800金币 |
+| kureha | 暮叶 | 恢复型 | 110 | 200 | 圣水 | 恢复 | 1000金币 |
+| miho | 美穗 | 成长型 | 95 | 200 | 手榴弹 | 成长 | 1500金币 |
+| mika | 米卡 | 全能型 | 120 | 230 | 星星 | 暴击 | 2000金币 |
+
+### 2.3 角色升级系统
+
+- 角色最高等级: 10级
+- 升级消耗金币: `50 * (当前等级 + 1)`
+- 每级提升全属性 (HP+5, 速度+5, 护甲+0.2, 伤害+5%, 冷却-1%, 暴击率+1%, 暴击伤害+5%, etc.)
+
+## 3. 武器系统
+
+游戏共有 **12 种武器**，每个角色初始携带一种武器，通过升级可选择额外武器。每种武器有 8 个等级，随等级提升伤害、数量、穿透、冷却等属性。
+
+### 3.1 武器一览
+
+| ID | 名称 | 类型 | 基础伤害 | 冷却(s) | 特点 |
+|----|------|------|---------|---------|------|
+| pistol | 手枪 | 射击 | 10 | 0.8 | 基础射击武器，均衡属性 |
+| sniper | 狙击步枪 | 射击 | 30 | 2.0 | 高伤害远程，无限穿透 |
+| axe | 消防斧 | 近战 | 20 | 1.5 | 扇形劈砍，高击退 |
+| grenade | 手榴弹 | 爆炸 | 25 | 2.5 | 范围爆炸伤害 |
+| baseball | 棒球 | 弹射 | 12 | 1.2 | 弹跳球体，多段穿透 |
+| flamethrower | 喷火器 | 持续 | 8 | 0.15 | 近距离火焰喷射，极快攻速 |
+| drone | 无人机 | 追踪 | 15 | 1.0 | 自动追踪，持续5秒环绕 |
+| missile | 导弹 | 追踪爆炸 | 35 | 3.0 | 追踪导弹，大范围爆炸 |
+| talisman | 符咒 | 环绕 | 12 | 2.0 | 环绕护盾，无限穿透 |
+| dagger | 飞刀 | 射击 | 8 | 0.5 | 极快速度投掷飞刀 |
+| holywater | 圣水 | 地面积 | 10 | 3.0 | 地面持续4秒伤害区域 |
+| star | 星星 | 散射 | 10 | 0.8 | 3方向散射，高弹幕密度 |
+
+### 3.2 武器升级机制
+
+每种武器有 8 级，每级提升以下属性之一或多者：
+- damage: 基础伤害
+- count: 弹射物数量
+- pierce: 穿透数
+- cooldown: 冷却时间（降低）
+- area: 攻击范围
+
+升级路径在 `scripts/autoload/database.gd` 的 weapons 字典中定义。
+
+## 4. 被动道具系统
+
+游戏共有 **16 种被动道具**，升级时可选择，永久增强角色属性。大部分被动道具最高 5 级。
+
+| ID | 名称 | 效果 | 最高等级 |
+|----|------|------|---------|
+| armor | 护甲 | 减少受到的伤害 | 5 |
+| damage | 力量 | 增加伤害倍率 | 5 |
+| speed | 弹速 | 增加弹射物速度 | 5 |
+| cooldown | 冷却缩减 | 减少武器冷却时间 | 5 |
+| critical | 暴击 | 增加暴击率 | 5 |
+| magnet | 磁铁 | 增加拾取范围 | 5 |
+| maxhp | 生命上限 | 增加最大生命值 | 5 |
+| recovery | 恢复 | 每秒恢复生命 | 5 |
+| luck | 幸运 | 增加幸运值 | 5 |
+| movespeed | 移速 | 增加移动速度 | 5 |
+| growth | 成长 | 增加经验获取 | 5 |
+| greed | 贪婪 | 增加金币获取 | 5 |
+| duration | 持续时间 | 增加效果持续时间 | 5 |
+| area | 范围 | 增加攻击范围 | 5 |
+| amount | 数量 | 增加弹射物数量 (+1/+2/+3) | 3 |
+| revival | 复活 | 死亡时复活次数 | 3 |
+
+## 5. 敌人系统
+
+### 5.1 普通敌人（4种）
+
+| ID | 名称 | HP | 伤害 | 速度 | 经验 | 护甲 | 特点 |
+|----|------|-----|------|------|------|------|------|
+| brainless_basic | 无脑者 | 10 | 5 | 80 | 1 | 0 | 基础敌人，数量最多 |
+| brainless_fast | 快速无脑者 | 8 | 5 | 150 | 2 | 0 | 高速移动，低血量 |
+| brainless_tank | 重装无脑者 | 40 | 10 | 50 | 5 | 2 | 高血量高护甲，缓慢 |
+| brainless_ranged | 远程无脑者 | 12 | 8 | 60 | 3 | 0 | 远程攻击（实际实现待确认） |
+
+### 5.2 Boss（5个）
+
+每个 Boss 拥有多阶段（1~3阶段）战斗机制。
+
+| ID | 名称 | HP | 伤害 | 速度 | 经验 | 阶段数 | 出现在 |
+|----|------|-----|------|------|------|--------|--------|
+| butcher | 血腥屠夫 | 300 | 10 | 80 | 30 | 1 | 废弃城市 (教学关) |
+| sakura | 血樱妖姬 | 500 | 15 | 100 | 50 | 2 | 公路 |
+| miho | 烈焰狂鬼 | 800 | 20 | 90 | 80 | 2 | 荒原 |
+| kanna | 幽冥魔导 | 1200 | 25 | 110 | 120 | 3 | 森林 |
+| kiko | 诡面妖狐 | 1500 | 30 | 100 | 150 | 3 | 后续预留 |
+| kureha | 不朽暮灵 | 2000 | 35 | 120 | 200 | 3 | 后续预留 |
+
+> 注: kiko 和 kureha Boss 在 database.gd 中已定义，但在当前 4 张地图中未使用（仅有 butcher/sakura/miho/kanna 被地图引用）。
+
+## 6. 地图系统
+
+游戏共有 **4 张地图**，按线性解锁顺序排列。
+
+| map_code | 名称 | 尺寸 | 敌人类型 | Boss | 时间限制 | 特点 |
+|----------|------|------|---------|------|---------|------|
+| tutorial | 废弃城市 | 3000x3000 | 基础 | 血腥屠夫 | 180秒 | 教程关，3倍经验 |
+| endless_road | 公路 | 4000x4000 | 基础+快速 | 血樱妖姬 | 900秒 | 主线第一章 |
+| wasteland | 荒原 | 5000x5000 | 基础+快速+重装 | 烈焰狂鬼 | 900秒 | 支线，敌人更强 |
+| crimson_forest | 森林 | 6000x6000 | 全部4种 | 幽冥魔导 | 900秒 | 终章，敌人最多 |
+
+地图解锁顺序：废弃城市 → 公路 → 荒原 → 森林
+
+## 7. 战斗机制
+
+### 7.1 经验与升级
+
+- 击杀敌人掉落经验宝石（蓝/绿/红三种，经验值递增）
+- 经验值累计满足条件后升级，弹出升级选择界面
+- 每次升级从随机 3~4 个选项中选 1 个（新武器 / 武器升级 / 被动道具）
+- 经验表公式: `10 + level * 5 + level^1.5 * 2`（最高支持 200 级）
+
+### 7.2 掉落物
+
+| 类型 | 说明 |
+|------|------|
+| 经验宝石 | 蓝/绿/红三种，分别提供 5/20/50 经验 |
+| 金币 | 击杀敌人掉落，不同敌人掉落金币范围不同 |
+| 治疗球 | 概率掉落，拾取后恢复生命 |
+
+### 7.3 Boss 出场
+
+- 每张地图在时间限制到达时（或在最后一波时）触发 Boss 战
+- Boss 出现前有音效（sfx_boss_appear.wav）和对话框提示
+- Boss 拥有专属 BGM（bgm_boss.wav）
+- 击败 Boss 后进入胜利结算
+
+### 7.4 伤害数字
+
+- 攻击命中敌人时显示伤害数字
+- 暴击时显示更大/不同颜色的数字
+- 数字向上飘动后消失
+
+### 7.5 小地图
+
+- 在 HUD 角落显示小地图
+- 显示玩家位置、敌人分布（红色点）、Boss 位置
+
+### 7.6 Boss 血条
+
+- Boss 出场时屏幕顶部显示专属 Boss 血条
+- 含 Boss 名称和剩余血量百分比
+
+## 8. 结算系统
+
+### 8.1 结算触发
+
+- **胜利**: 击败地图 Boss 后触发
+- **失败**: 玩家生命值归零后触发
+- **无尽模式**: 无论如何都进入胜利结算
+
+### 8.2 评级系统
+
+根据战斗表现给予评级（S/A/B/C/D），考量因素包括：
+- 存活时间 / 通关时间
+- 击杀数量
+- Boss 击败情况
+- 受到的伤害
+
+### 8.3 结算数据
+
+结算面板展示：
+- 存活时间
+- 击杀数
+- Boss 击杀数
+- 获得经验
+- 获得金币
+- 评级
+
+## 9. 云存档同步
+
+已登录用户可通过网络将游戏进度同步到服务器，实现多设备数据互通。
+
+- **上传**: 将本地所有进度（金币、钻石、解锁角色、角色等级、解锁地图、成就）序列化为 JSON 上传
+- **下载**: 从服务器获取存档 JSON 覆盖本地数据
+- **安全**: 被封禁用户无法使用同步功能；上传使用 Redisson 分布式锁防止并发冲突
+
+详见《数据同步接口文档》(sync-api-design.md)。
+
+## 10. UI 界面
+
+### 10.1 主菜单 (main_menu.tscn)
+
+- 角色选择：展示 9 个角色，已解锁的可以选中并确认
+- NPC 大厅：多个功能 NPC 分布，走近交互
+- 顶部状态栏：金币、钻石显示 + 登录/同步按钮
+- 商城/图鉴入口
+
+### 10.2 地图选择 (map_select.tscn)
+
+- 展示 4 张地图
+- 已解锁的地图可点击进入
+- 未解锁的地图灰色显示 + 显示解锁条件
+
+### 10.3 游戏战斗 HUD (hud.gd)
+
+- 顶部：经验条（当前经验/升级所需经验）
+- 左上：角色血条
+- 右上：金币数
+- 左上区域：当前武器列表（含图标和等级）
+- 角落：小地图
+- Boss 战时：顶部 Boss 血条
+
+### 10.4 升级选择界面 (level_up_ui.gd)
+
+- 暂停游戏
+- 显示 3~4 个随机选项（新武器 / 武器升级 / 被动道具）
+- 每个选项显示名称、描述、当前等级/最高等级
+
+### 10.5 结算界面 (victory_settlement_ui.gd / game_over_ui.gd)
+
+- 显示战斗统计数据
+- 显示评级（S/A/B/C/D）
+- 胜利时播放 bgm_victory.wav
+- 失败时播放 bgm_gameover.wav
+
+### 10.6 设置界面 (settings_ui.gd)
+
+- 音量调节：主音量、BGM、SFX 分别独立调节
+- 全屏切换
+- 按键自定义重绑定
+- 语言选择（预留）
+
+### 10.7 登录界面 (login_ui.gd)
+
+- 用户名/密码登录
+- 注册新账号
+- 离线模式（跳过登录直接进入）
+
+### 10.8 图鉴界面 (codex_ui.gd)
+
+- 查看已解锁的角色、武器、被动道具信息
+- 查看成就进度
+
+### 10.9 暂停菜单 (pause_menu.gd)
+
+- 返回游戏
+- 设置
+- 返回主菜单
+
+## 11. 音频系统
+
+音频管理由 autoload 脚本 `audio_manager.gd` 统一管理，支持：
+
+| 类别 | 音效文件 | 说明 |
+|------|---------|------|
+| 背景音乐 | bgm_menu.wav | 主菜单BGM |
+| | bgm_battle.wav / _1 / _2 / _3 | 战斗BGM (4个变体) |
+| | bgm_boss.wav | Boss战BGM |
+| | bgm_victory.wav | 胜利BGM |
+| | bgm_gameover.wav | 游戏结束BGM |
+| 音效 | sfx_shoot.wav | 射击音效 |
+| | sfx_hit.wav | 命中音效 |
+| | sfx_enemy_die.wav | 敌人死亡音效 |
+| | sfx_player_hit.wav | 玩家受伤音效 |
+| | sfx_coin.wav | 拾取金币音效 |
+| | sfx_levelup.wav | 升级音效 |
+| | sfx_heal.wav | 治疗音效 |
+| | sfx_boss_appear.wav | Boss出场音效 |
+| | ... | 其他 20+ 音效 |
+
+音量可独立调节 BGM 和 SFX。
+
+## 12. 数据存储
+
+### 12.1 本地存档
+
+- GlobalSave autoload (`global_save.gd`): 管理本地游戏进度数据
+- SaveManager autoload (`save_manager.gd`): 管理存档读写到本地文件
+
+### 12.2 云端存档
+
+- 通过 NetworkManager (`network_manager.gd`) 向后端 HTTP API 发送存档数据
+- 数据以 JSON 格式存储在 `t_user_save_data` 表的 `save_data` 字段中
+
+### 12.3 游戏数据定义
+
+- 所有角色、武器、敌人、Boss、地图、对话等静态数据定义在 `scripts/autoload/database.gd` 中
+- 这是一个 autoload 单例，所有场景和脚本均可通过 `Database.xxx` 访问

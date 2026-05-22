@@ -3,377 +3,319 @@
 ## 1. 整体架构
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Godot 4.0     │    │   Vue3 + Vite   │    │   浏览器/其他    │
-│   游戏客户端     │    │   管理后台       │    │   (预留)         │
-│                 │    │                 │    │                 │
-│ 本地资源文件:    │    │                 │    │                 │
-│ - characters.json│    │                 │    │                 │
-│ - buffs.json    │    │                 │    │                 │
-│ - maps.json     │    │                 │    │                 │
-│ - achievements.json│  │                 │    │                 │
-│ - daily_tasks.json│  │                 │    │                 │
-│ - shop_items.json│   │                 │    │                 │
-└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
-         │  HTTP/JSON           │  HTTP/JSON           │
-         └──────────┬───────────┴──────────────────────┘
-                    │
-         ┌──────────▼──────────┐
-         │   Nginx (可选)       │
-         │   反向代理/静态资源   │
-         └──────────┬──────────┘
-                    │
-         ┌──────────▼──────────┐
-         │   Spring Boot 3.x   │
-         │   RESTful API       │
-         │   Port: 8080        │
-         │                     │
-         │  只处理运行时数据:    │
-         │  用户/货币/交易/社交  │
-         └──────────┬──────────┘
-                    │
-    ┌───────────────┼───────────────┐
-    │               │               │
-┌───▼───┐    ┌──────▼──────┐   ┌───▼───┐
-│MySQL  │    │   Redis     │   │本地文件│
-│8.0    │    │   7.x       │   │(日志) │
-│:3306  │    │   :6379     │   │       │
-└───────┘    └─────────────┘   └───────┘
+┌──────────────────────┐         ┌──────────────────────┐
+│   Godot 4 游戏客户端  │         │   Vue3 + Vite        │
+│   (GDScript)         │         │   管理后台            │
+│                      │         │                      │
+│  本地数据定义:         │         │  页面:               │
+│  - database.gd       │         │  - 登录 (黑洞动画)    │
+│    (角色/武器/敌人/   │         │  - 仪表盘 (ECharts)  │
+│     地图/Boss定义)    │         │  - 用户管理           │
+│                      │         │  - 用户数据管理       │
+│                      │         │  - 操作日志           │
+│                      │         │  - 管理员管理         │
+│                      │         │  - 修改密码           │
+└──────────┬───────────┘         └──────────┬───────────┘
+           │  HTTP REST                      │  HTTP REST
+           │  JSON                           │  JSON
+           │                                 │
+     ┌─────┴─────────────────────────────────┴─────┐
+     │                                              │
+     │         Spring Boot 3.2.5 (Java 17)          │
+     │         Port: 8080                           │
+     │                                              │
+     │  ┌──────────────────────────────────────┐   │
+     │  │         Controller 层                 │   │
+     │  │  GameUserController                  │   │
+     │  │  GameSyncController                  │   │
+     │  │  AdminController                     │   │
+     │  ├──────────────────────────────────────┤   │
+     │  │         Interceptor 层               │   │
+     │  │  GameAuthInterceptor (游戏JWT验证)    │   │
+     │  │  AdminAuthInterceptor (管理端JWT验证) │   │
+     │  │  RateLimitInterceptor (Redis限流)    │   │
+     │  ├──────────────────────────────────────┤   │
+     │  │         Service 层                   │   │
+     │  │  UserService / UserServiceImpl       │   │
+     │  │  SyncService / SyncServiceImpl       │   │
+     │  │  AdminService / AdminServiceImpl     │   │
+     │  ├──────────────────────────────────────┤   │
+     │  │         Mapper 层                    │   │
+     │  │  UserMapper                          │   │
+     │  │  UserSaveDataMapper                  │   │
+     │  │  AdminMapper                         │   │
+     │  │  AdminOperationLogMapper             │   │
+     │  │  CharacterDefinitionMapper           │   │
+     │  │  MapDefinitionMapper                 │   │
+     │  ├──────────────────────────────────────┤   │
+     │  │         Entity 层                    │   │
+     │  │  User / Admin / UserSaveData          │   │
+     │  │  AdminOperationLog                    │   │
+     │  │  CharacterDefinition / MapDefinition │   │
+     │  └──────────────────────────────────────┘   │
+     │                                              │
+     │  AOP: OperationLogAspect (操作日志自动记录)    │
+     │  Task: OnlineUserCleanupTask (每5分钟清理)    │
+     │                                              │
+     └──────────┬───────────────┬───────────────────┘
+                │               │
+          ┌─────▼─────┐   ┌────▼─────┐
+          │   MySQL   │   │  Redis   │
+          │   8.0     │   │          │
+          │  :3306    │   │  :6379   │
+          └───────────┘   └──────────┘
 ```
 
-## 2. 数据归属原则
-
-### 2.1 游戏客户端资源（本地数据）
-
-以下数据由 Godot 游戏客户端资源文件定义，**不存储在数据库中**：
-
-| 资源类型 | 客户端资源文件 | 说明 |
-|----------|---------------|------|
-| 角色定义 | `data/characters.json` | 角色名、基础属性、技能、武器类型、解锁条件等 |
-| Buff定义 | `data/buffs.json` | Buff名称、效果类型、数值、稀有度、持续时间等 |
-| 地图/关卡定义 | `data/maps.json` | 地图名、难度、波数、Boss间隔、解锁条件等 |
-| 成就定义 | `data/achievements.json` | 成就名、条件类型、条件值、奖励等 |
-| 每日任务定义 | `data/daily_tasks.json` | 任务名、类型、目标值、奖励等 |
-| 商品详情 | `data/shop_items.json` | 商品名、描述、图片、效果类型、效果值等 |
-
-### 2.2 后端数据库（运行时数据）
-
-以下数据存储在后端数据库中：
-
-| 数据类型 | 说明 |
-|----------|------|
-| 用户账户 | 用户名、密码、昵称、头像、等级、经验、货币余额 |
-| 商品运营数据 | 价格、库存、限购、上下架状态、时间限制 |
-| 用户背包 | 用户拥有的物品编码(item_code)及数量 |
-| 用户角色状态 | 用户解锁的角色编码(character_code)及强化数据 |
-| 购买/充值记录 | 订单号、金额、状态等交易数据 |
-| 好友关系 | 好友列表、好友请求 |
-| 成就/任务进度 | 用户的进度、完成状态、领取状态 |
-| 游戏记录 | 每局游戏的统计数据 |
-| 排行榜 | 排行榜分数快照 |
-| 邮件 | 系统邮件及奖励 |
-| 签到 | 签到记录 |
-
-### 2.3 编码对应关系
-
-数据库中的 `item_code`、`character_code`、`achievement_code`、`task_code`、`map_code` 等字段，与游戏客户端资源文件中的 `id` 字段一一对应。客户端通过这些编码关联本地资源获取完整的名称、描述、图片等信息。
-
-## 3. 技术选型
+## 2. 技术选型
 
 | 组件 | 技术 | 版本 | 说明 |
 |------|------|------|------|
-| 游戏引擎 | Godot | 4.0 | GDScript，像素风游戏 |
+| 游戏引擎 | Godot | 4.x | GDScript，像素风类幸存者游戏 |
 | 前端框架 | Vue 3 | 3.4+ | Composition API |
-| 构建工具 | Vite | 5.x | 快速开发构建 |
+| 构建工具 | Vite | 5.x | 前端开发构建 |
 | UI组件库 | Element Plus | 2.x | 管理后台UI |
-| 状态管理 | Pinia | 2.x | Vue3状态管理 |
-| 后端框架 | Spring Boot | 3.2+ | Java 17 |
-| ORM | MyBatis-Plus | 3.5+ | 简化数据库操作 |
-| 认证 | Spring Security + JWT | - | 认证授权 |
-| 缓存 | Redis + Caffeine | - | 多级缓存 |
+| 状态管理 | Pinia | 2.x | Vue 3状态管理 |
+| 图表库 | ECharts | 5.x | 仪表盘图表 |
+| HTTP客户端 | Axios | - | 前端HTTP请求 |
+| 后端框架 | Spring Boot | 3.2.5 | Java 17 |
+| ORM框架 | MyBatis-Plus | 3.5+ | 简化数据库操作 |
+| 安全框架 | Spring Security | - | CSRF禁用，无状态会话 |
+| 密码加密 | BCrypt | - | 密码哈希存储 |
+| JWT | jjwt | 0.12+ | HMAC-SHA256签名 |
+| 数据库 | MySQL | 8.0 | InnoDB，utf8mb4 |
+| 缓存 | Redis | 7.x | 多种缓存策略 |
 | 分布式锁 | Redisson | 3.x | Redis分布式锁 |
-| API文档 | Knife4j | 4.x | Swagger增强 |
-| 数据库 | MySQL | 8.0 | 关系型数据库 |
+| 定时任务 | Spring @Scheduled | - | 在线用户定时清理 |
+| AOP | Spring AOP | - | 操作日志自动记录 |
+| API文档 | Knife4j | 4.x | Swagger增强，/doc.html |
+| 构建工具 | Maven | - | 后端依赖管理 |
 
-## 4. 后端分层架构
-
-```
-┌─────────────────────────────────────────┐
-│              Controller 层              │
-│   接收请求、参数校验、调用Service         │
-├─────────────────────────────────────────┤
-│              Service 层                 │
-│   业务逻辑、事务管理、缓存操作            │
-├─────────────────────────────────────────┤
-│              Mapper 层                  │
-│   数据库访问（MyBatis-Plus）             │
-├─────────────────────────────────────────┤
-│              Entity 层                  │
-│   数据实体、DTO、VO                     │
-└─────────────────────────────────────────┘
-```
-
-### 4.1 包结构
+## 3. 后端包结构
 
 ```
 com.pixelsurvivor
-├── PixelSurvivorApplication.java    # 启动类
-├── config/                           # 配置类
-│   ├── RedisConfig.java             # Redis配置
-│   ├── SecurityConfig.java          # Security配置
-│   ├── CorsConfig.java              # 跨域配置
-│   ├── MyBatisPlusConfig.java       # MyBatis-Plus配置
-│   ├── Knife4jConfig.java           # API文档配置
-│   └── CaffeineConfig.java          # 本地缓存配置
-├── common/                           # 通用组件
+├── PixelSurvivorApplication.java     # 启动类（启用定时任务）
+├── config/                            # 配置类
+│   ├── SecurityConfig.java           # Spring Security（CSRF禁用，无状态会话，全部放行）
+│   ├── WebConfig.java                # CORS配置 + 拦截器注册
+│   ├── RedisConfig.java              # Redis连接配置
+│   └── RedissonConfig.java           # Redisson分布式锁客户端
+├── common/                            # 通用组件
 │   ├── result/
-│   │   ├── Result.java              # 统一返回
-│   │   └── ResultCode.java          # 错误码枚举
+│   │   ├── Result.java               # 统一响应格式 {code, message, data}
+│   │   └── ResultCode.java           # 错误码枚举
 │   ├── exception/
-│   │   ├── BusinessException.java   # 业务异常
-│   │   └── GlobalExceptionHandler.java # 全局异常处理
+│   │   ├── BusinessException.java    # 业务异常
+│   │   └── GlobalExceptionHandler.java
 │   ├── annotation/
-│   │   └── OperationLog.java        # 操作日志注解
+│   │   ├── OperationLog.java         # 操作日志注解
+│   │   └── RateLimit.java            # 限流注解
 │   ├── aspect/
-│   │   └── OperationLogAspect.java  # 操作日志切面
-│   ├── util/
-│   │   ├── JwtUtil.java             # JWT工具
-│   │   ├── OrderNoUtil.java         # 订单号生成
-│   │   └── IpUtil.java              # IP工具
-│   └── constant/
-│       └── RedisConstant.java       # Redis Key常量
-├── module/
-│   ├── admin/                        # 管理员模块
-│   │   ├── controller/
-│   │   ├── service/
-│   │   ├── mapper/
-│   │   ├── entity/
-│   │   └── dto/
-│   ├── user/                         # 用户模块
-│   ├── shop/                         # 商城模块(运营数据管理)
-│   ├── order/                        # 订单模块
-│   ├── friend/                       # 好友模块
-│   ├── sign/                         # 签到模块
-│   ├── achievement/                  # 成就进度模块
-│   ├── task/                         # 任务进度模块
-│   ├── mail/                         # 邮件模块
-│   ├── ranking/                      # 排行榜模块
-│   ├── character/                    # 用户角色状态模块
-│   ├── record/                       # 游戏记录模块
-│   ├── recharge/                     # 充值模块
-│   └── sync/                         # 数据同步模块
-└── interceptor/
-    ├── JwtAuthFilter.java            # JWT认证过滤器
-    └── RateLimitInterceptor.java     # 限流拦截器
+│   │   └── OperationLogAspect.java  # AOP切面：自动记录管理端操作
+│   ├── constant/
+│   │   └── RedisConstant.java       # Redis Key前缀常量
+│   └── util/
+│       └── JwtUtil.java             # JWT工具（生成/解析/验证双Token）
+├── config/interceptor/
+│   ├── GameAuthInterceptor.java     # 游戏端JWT拦截器（验证game token）
+│   ├── AdminAuthInterceptor.java    # 管理端JWT拦截器（验证admin token）
+│   └── RateLimitInterceptor.java    # Redis固定窗口限流拦截器
+├── controller/
+│   ├── GameUserController.java      # 游戏端：注册/登录/用户信息
+│   ├── GameSyncController.java      # 游戏端：存档上传/下载
+│   └── AdminController.java         # 管理端：全部管理功能
+├── service/
+│   ├── UserService.java / UserServiceImpl.java
+│   ├── SyncService.java / SyncServiceImpl.java
+│   └── AdminService.java / AdminServiceImpl.java
+├── mapper/
+│   ├── UserMapper.java
+│   ├── UserSaveDataMapper.java
+│   ├── AdminMapper.java
+│   ├── AdminOperationLogMapper.java
+│   ├── CharacterDefinitionMapper.java
+│   └── MapDefinitionMapper.java
+├── entity/
+│   ├── User.java                     # t_user
+│   ├── Admin.java                    # t_admin
+│   ├── UserSaveData.java             # t_user_save_data
+│   ├── AdminOperationLog.java        # t_admin_operation_log
+│   ├── CharacterDefinition.java      # t_character_definition
+│   ├── MapDefinition.java            # t_map_definition
+│   └── vo/
+│       ├── DailyStatsVO.java         # 每日统计视图对象
+│       └── UserItemVO.java           # 用户物品视图对象
+├── dto/
+│   ├── SyncUploadDTO.java            # 存档上传请求DTO
+│   └── SyncDownloadVO.java           # 存档下载响应VO
+└── task/
+    └── OnlineUserCleanupTask.java    # 定时清理离线用户（每5分钟）
 ```
 
-**说明**：已移除 `buff/`、`map/` 模块，因为 Buff 定义和地图定义由游戏客户端资源管理，后端不再存储和管理这些游戏内容数据。`character/` 模块保留但职责变更为只管理用户角色状态（解锁、强化），不再管理角色定义。`achievement/` 和 `task/` 模块保留但职责变更为只管理用户进度，不再管理成就/任务定义。
+## 4. Redis 缓存架构
 
-## 5. 缓存架构
+本项目使用 Redis 实现了 5 种核心功能，覆盖缓存、分布式锁、限流和在线状态管理。
 
-### 5.1 多级缓存
+### 4.1 功能一览
 
-```
-请求 → Caffeine(L1, 5min) → Redis(L2, 15-40min) → MySQL
-```
+| 序号 | 功能 | Redis数据结构 | Key格式 | TTL/策略 | 说明 |
+|------|------|-------------|---------|----------|------|
+| 1 | 用户信息缓存 | String (Hash预留) | `user:info:{userId}` | 30分钟 | Cache-Aside模式：查询时先查Redis，未命中查MySQL后回填；更新时删除缓存 |
+| 2 | 仪表盘统计缓存 | 间接缓存 | 无独立Key | 数据库联表查询 | 仪表盘总览和每日统计直接查询MySQL（因涉及按日期分组聚合），通过分页和索引优化 |
+| 3 | 分布式锁 | Redisson Lock | `lock:sync:{userId}` | 自动续期 | 存档上传时使用Redisson分布式锁，防止同一用户并发上传导致数据损坏 |
+| 4 | API限流 | String (INCR) | `rate:api:{IP地址}` | 可配时间窗口 | 固定窗口算法：每个IP在窗口期内最多N次请求。Redis不可用时自动降级放行（fail-open） |
+| 5 | 在线用户追踪 | Set | `user:online` | 定时清理 | 登录时将userId加入Set；@Scheduled每5分钟扫描Set，将数据库中is_online=0的用户移除 |
 
-### 5.2 缓存策略
-
-| 数据类型 | L1缓存 | L2缓存 | 防穿透 | 防击穿 | 防雪崩 |
-|----------|--------|--------|--------|--------|--------|
-| 商品运营数据 | Caffeine 5min | Redis 30min+random | 布隆过滤器 | 互斥锁 | 随机TTL |
-| 用户信息 | Caffeine 3min | Redis 20min+random | 空值缓存 | 互斥锁 | 随机TTL |
-| 用户背包 | Caffeine 3min | Redis 15min+random | 空值缓存 | 互斥锁 | 随机TTL |
-| 用户角色状态 | Caffeine 3min | Redis 15min+random | 空值缓存 | 互斥锁 | 随机TTL |
-| 排行榜 | - | Redis Sorted Set | - | - | - |
-| 在线状态 | - | Redis Set | - | - | - |
-
-**说明**：已移除 Buff 定义、地图数据的缓存项，因为这些数据由游戏客户端本地资源管理，后端不再存储和查询。
-
-### 5.3 Redis Key 设计
+### 4.2 用户信息缓存流程（Cache-Aside）
 
 ```
-# 用户
-user:info:{userId}              Hash    TTL 20min+random
-user:token:{userId}             String  TTL 2h
-user:online                     Set     无过期
+读取流程:
+  GET /api/game/user/info
+    → 查询 Redis: user:info:{userId}
+    → 命中: 直接返回
+    → 未命中: 查询 MySQL t_user → 返回给客户端
 
-# 商品运营数据
-shop:items:list                 String  TTL 30min+random
-shop:item:{itemCode}            Hash    逻辑过期1h
-
-# 排行榜
-ranking:wave:{season}           Sorted Set
-ranking:kill:{season}           Sorted Set
-ranking:score:{season}          Sorted Set
-
-# 好友
-friend:list:{userId}            Set     TTL 10min
-
-# 签到
-sign:record:{userId}:{month}    Bitmap  TTL 40天
-
-# 用户背包
-user:items:{userId}             String  TTL 15min+random
-
-# 用户角色状态
-user:characters:{userId}        String  TTL 15min+random
-
-# 分布式锁
-lock:shop:item:{itemCode}       String  TTL 10s
-lock:user:purchase:{userId}     String  TTL 10s
-lock:sign:{userId}              String  TTL 5s
-
-# 布隆过滤器
-bloom:user:id                   BloomFilter
-bloom:shop:item:code            BloomFilter
-
-# 限流
-rate:api:{ip}                   String  TTL 1min
-rate:purchase:{userId}          String  TTL 1s
+写入流程:
+  更新用户信息（昵称/头像/货币/统计数据）
+    → 更新 MySQL
+    → DELETE Redis: user:info:{userId}  (删除缓存，下次查询时自动回填)
 ```
 
-## 6. 安全架构
-
-### 6.1 认证流程
+### 4.3 限流拦截器详细设计
 
 ```
-客户端 → POST /login (username, password)
-       ← JWT Token (2h有效期)
+拦截路径: /api/**  (通过 @RateLimit 注解标注方法)
+算法: 固定窗口计数 (Fixed Window)
+实现: Redis INCR + EXPIRE
 
-客户端 → GET /api/xxx (Header: Authorization: Bearer {token})
-       → JwtAuthFilter 验证Token
-       → 解析userId/adminId
-       → 放行到Controller
+流程:
+  1. 提取客户端真实 IP (X-Forwarded-For → X-Real-IP → RemoteAddr)
+  2. 拼接 Key: rate:api:{ip}
+  3. 执行 INCR rate:api:{ip}
+  4. 若 INCR 返回 1 → 设置过期时间 (window秒)
+  5. 若 count > maxRequests → 返回 HTTP 429
+
+容错: Redis 连接异常时 fail-open（记录警告日志，放行请求）
+```
+
+### 4.4 在线用户追踪详细设计
+
+```
+记录上线:
+  UserServiceImpl.login()
+    → 更新 MySQL: is_online = 1
+    → Redis SADD user:online {userId}
+
+定时清理 (OnlineUserCleanupTask):
+  每 5 分钟执行:
+    → SMEMBERS user:online 获取所有在线userId
+    → 遍历每个userId，查询 MySQL: is_online 字段
+    → 若 is_online != 1 → SREM user:online {userId}
+  
+  容错: Redis 不可用时跳过本次清理
+```
+
+## 5. 安全架构
+
+### 5.1 JWT 双Token认证体系
+
+| 对比维度 | 游戏端Token | 管理端Token |
+|----------|------------|------------|
+| 类型标记 | `type: "game"` | `type: "admin"` |
+| 有效时长 | 2小时 | 8小时 |
+| 签发内容 | userId, username | adminId, username, role |
+| 拦截器 | GameAuthInterceptor | AdminAuthInterceptor |
+| 路径范围 | /api/game/** | /api/admin/** |
+| 放行路径 | /api/game/user/login, /api/game/user/register | /api/admin/login |
+
+### 5.2 认证流程
+
+```
+客户端 → POST /api/game/user/login (username, password)
+       ← JWT Game Token (2h有效期)
+
+客户端 → GET /api/game/user/info (Header: Authorization: Bearer {token})
+       → GameAuthInterceptor 验证Token签名、有效期、类型
+       → 解析userId → setAttribute("userId", userId)
+       → Controller 通过 @RequestAttribute Long userId 获取
        ← 响应数据
 ```
 
-### 6.2 权限模型
+### 5.3 Spring Security 配置
 
-| 路径前缀 | 认证要求 | 说明 |
-|----------|----------|------|
-| `/api/game/login`, `/api/game/register` | 无需认证 | 公开接口 |
-| `/api/game/**` | Game JWT | 游戏用户Token |
-| `/api/admin/login` | 无需认证 | 管理员登录 |
-| `/api/admin/**` | Admin JWT | 管理员Token |
+- CSRF: 已禁用（REST API不需要）
+- 会话管理: STATELESS（JWT无状态认证）
+- 表单登录/Basic认证: 已禁用
+- 请求授权: 全部放行（`anyRequest().permitAll()`），认证由自定义拦截器处理
+- CORS: 允许所有来源，支持 GET/POST/PUT/DELETE/OPTIONS
 
-**说明**：已移除 `/api/game/buffs`、`/api/game/maps` 等公开数据接口，因为 Buff 定义和地图定义由游戏客户端本地资源提供，不再需要从后端获取。
+### 5.4 安全措施汇总
 
-### 6.3 安全措施
+- 密码存储：BCrypt 加密（Spring Security BCryptPasswordEncoder）
+- JWT签名：HMAC-SHA256（jjwt库），密钥可配置
+- CORS：WebConfig 中配置白名单
+- SQL注入：MyBatis-Plus 参数化查询
+- API限流：Redis 固定窗口计数器
+- 操作审计：AOP 自动记录管理端所有敏感操作（含IP、参数、响应、耗时）
+- 封禁检查：被禁用户（status=1）无法登录和同步数据
 
-- 密码BCrypt加密（强度10）
-- JWT Token签名（HS256）
-- CORS白名单配置
-- SQL注入防护（MyBatis-Plus参数化）
-- XSS防护（输入过滤）
-- API限流（令牌桶算法）
-- 敏感操作日志记录
+## 6. AOP操作日志
 
-## 7. 支付架构
+`OperationLogAspect` 通过 `@Around` 环绕通知拦截所有标注 `@OperationLog` 注解的方法，自动记录：
 
-### 7.1 充值流程（模拟模式）
+- 操作人 (adminId, adminUsername 从JWT解析)
+- 操作模块 (module: 用户管理/用户数据管理/管理员管理)
+- 操作类型 (operation: CREATE/UPDATE/DELETE/LOGIN)
+- 操作描述 (description)
+- 请求参数 JSON（截断至1000字符）
+- 响应结果 JSON（截断至1000字符）
+- 操作IP地址
+- 异常信息
+- 耗时（毫秒）
 
-```
-客户端 → POST /api/game/recharge/create
-       → 创建充值订单（status=0）
-       → 模拟支付成功
-       → 更新订单状态（status=1）
-       → 发放钻石到用户账户
-       ← 返回充值结果
-```
+日志通过 JDBC Template 直接写入 `t_admin_operation_log` 表（不走 MyBatis-Plus），确保即使业务异常也能记录日志（finally 块中执行）。
 
-### 7.2 真实支付对接预留
+## 7. 部署环境
 
-```java
-/*
- * 支付宝对接步骤：
- * 1. 申请支付宝开放平台商户账号
- * 2. 引入 alipay-sdk-java 依赖
- * 3. 配置 appId、privateKey、alipayPublicKey
- * 4. 实现 createPayRequest() 生成支付表单/链接
- * 5. 实现 alipayNotify() 处理异步回调
- *
- * 微信支付对接步骤：
- * 1. 申请微信支付商户号
- * 2. 引入 wechatpay-java 依赖
- * 3. 配置 merchantId、privateKey、serialNo等
- * 4. 实现 createPayRequest() 生成预支付订单
- * 5. 实现 wechatPayNotify() 处理异步回调
- */
-```
+### 7.1 开发环境
 
-## 8. 好友系统架构
+| 组件 | 地址 | 说明 |
+|------|------|------|
+| MySQL | localhost:3306 | 数据库名 pixel_survivor，账号 root / 密码 1234 |
+| Redis | localhost:6379 | 默认配置 |
+| 后端 | localhost:8080 | Spring Boot 内嵌 Tomcat |
+| 前端 | localhost:5173 | Vite 开发服务器 |
+| 游戏 | Godot编辑器 | 直接运行 project.godot |
+| API文档 | localhost:8080/doc.html | Knife4j |
 
-### 8.1 当前实现（REST API）
+### 7.2 初始化步骤
 
-```
-客户端 → GET /api/game/friends
-       → 查询好友列表（MySQL + Redis缓存）
-       ← 返回好友列表（含在线状态）
-```
+1. 启动 MySQL，执行 `backend/sql/init.sql` 初始化数据库
+2. 启动 Redis
+3. 启动后端：`cd backend && mvn spring-boot:run`
+4. 启动前端：`cd frontend && npm install && npm run dev`
+5. 打开 Godot 编辑器，导入 `game-demo/project.godot`，点击运行
+6. 管理端默认账号：admin / admin123
+7. API文档访问：http://localhost:8080/doc.html
 
-### 8.2 WebSocket升级路径
+## 8. 开发规范
 
-```
-1. 添加依赖：spring-boot-starter-websocket
-2. 创建 WebSocket 配置和 Handler
-3. 用户连接时注册到 Redis（user:ws:{userId}）
-4. 好友请求通过 WebSocket 实时推送
-5. 在线状态变更广播给所有好友
-6. 心跳检测（30秒间隔）
-7. 多实例部署使用 Redis Pub/Sub 同步
-```
+### 8.1 命名规范
 
-## 9. 部署架构
+- 数据库表名：`t_` 前缀，小写下划线（如 `t_user_save_data`）
+- Java类名：大驼峰（如 `GameUserController`）
+- Java方法名/变量名：小驼峰（如 `getUserById`）
+- 常量：全大写下划线（如 `USER_INFO`）
+- API路径：小写，用 `-` 分隔（如 `/api/admin/daily-stats`）
+- 游戏资源编码：小写+下划线（如 `char_warrior`、`map_endless_road`）
 
-### 9.1 开发环境
+### 8.2 注释规范
 
-```
-本地开发：
-- MySQL: localhost:3306
-- Redis: localhost:6379
-- 后端: localhost:8080
-- 前端: localhost:5173 (Vite dev server)
-- 游戏: Godot编辑器直接运行
-```
-
-### 9.2 生产环境（参考）
-
-```
-┌─────────────┐
-│   Nginx     │ ← 静态资源 + 反向代理
-│   :80/:443  │
-└──────┬──────┘
-       │
-┌──────▼──────┐    ┌─────────────┐
-│ Spring Boot │    │   Vue3      │
-│ (JAR)       │    │   (静态部署) │
-│ :8080       │    │             │
-└──────┬──────┘    └─────────────┘
-       │
-┌──────▼──────┐    ┌─────────────┐
-│   MySQL     │    │   Redis     │
-│   :3306     │    │   :6379     │
-└─────────────┘    └─────────────┘
-```
-
-## 10. 开发规范
-
-### 10.1 命名规范
-- 数据库表名：`t_` 前缀，小写下划线
-- Java类名：大驼峰
-- Java方法名/变量名：小驼峰
-- 常量：全大写下划线
-- API路径：小写，用 `-` 分隔
-- 游戏资源编码：小写下划线，如 `char_warrior`、`item_heal_potion`、`ach_kill_100`
-
-### 10.2 注释规范
-- 类注释：说明类的作用
-- 方法注释：说明方法功能、参数、返回值
+- 类注释：使用 JavaDoc 格式说明类的职责
+- 方法注释：说明功能、参数、返回值、异常
 - 复杂逻辑：行内注释说明
 
-### 10.3 Git规范
-- 主分支：main
-- 开发分支：dev
-- 功能分支：feature/xxx
-- 提交信息：`类型: 描述`（如 `feat: 添加商品管理接口`）
+### 8.3 Git规范
+
+- 主分支：main（远程）/ master（本地）
+- 提交信息格式：`类型: 描述`（如 `feat: 添加Redis限流拦截器`）

@@ -2,6 +2,7 @@ package com.pixelsurvivor.config;
 
 import com.pixelsurvivor.config.interceptor.GameAuthInterceptor;
 import com.pixelsurvivor.config.interceptor.AdminAuthInterceptor;
+import com.pixelsurvivor.config.interceptor.RateLimitInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -22,6 +23,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final GameAuthInterceptor gameAuthInterceptor;
     private final AdminAuthInterceptor adminAuthInterceptor;
+    private final RateLimitInterceptor rateLimitInterceptor;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -35,6 +37,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // API限流拦截器（优先级最高，对所有 /api/** 生效）
+        registry.addInterceptor(rateLimitInterceptor)
+                .addPathPatterns("/api/**")
+                .order(0);
+
         // 游戏端认证拦截器
         registry.addInterceptor(gameAuthInterceptor)
                 .addPathPatterns("/api/game/**")

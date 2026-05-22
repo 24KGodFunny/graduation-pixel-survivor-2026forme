@@ -46,7 +46,7 @@ func _process(delta):
 		_spawn_enemy()
 
 func _clamp_to_map(pos: Vector2) -> Vector2:
-	var half = map_data["size"] / 2
+	var half = map_data["size"] / 2.0
 	var margin = 32.0
 	pos.x = clampf(pos.x, -half.x + margin, half.x - margin)
 	pos.y = clampf(pos.y, -half.y + margin, half.y - margin)
@@ -89,9 +89,9 @@ func _spawn_boss():
 	var dialogue_key = "boss_" + boss_id
 	if Engine.has_singleton("DialogueManager"):
 		var dm = Engine.get_singleton("DialogueManager")
-		if dm.has_method("play_dialogue") and Database.story_dialogues.has(dialogue_key):
-			dm.play_dialogue(dialogue_key)
+		if dm.has_method("start_dialogue") and Database.story_dialogues.has(dialogue_key):
+			dm.start_dialogue(dialogue_key)
 	elif has_node("/root/DialogueManager"):
 		var dm = get_node("/root/DialogueManager")
-		if dm.has_method("play_dialogue") and Database.story_dialogues.has(dialogue_key):
-			dm.play_dialogue(dialogue_key)
+		if dm.has_method("start_dialogue") and Database.story_dialogues.has(dialogue_key):
+			dm.start_dialogue(dialogue_key)

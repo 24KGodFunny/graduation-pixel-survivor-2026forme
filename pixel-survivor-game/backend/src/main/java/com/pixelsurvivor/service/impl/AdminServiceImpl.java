@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pixelsurvivor.common.constant.RedisConstant;
 import com.pixelsurvivor.common.exception.BusinessException;
 import com.pixelsurvivor.common.result.ResultCode;
 import com.pixelsurvivor.entity.Admin;
@@ -25,6 +26,9 @@ import com.pixelsurvivor.mapper.UserSaveDataMapper;
 import com.pixelsurvivor.service.AdminService;
 import com.pixelsurvivor.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +37,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -42,6 +47,7 @@ import java.util.stream.Collectors;
  *
  * @author PixelSurvivor
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements AdminService {
@@ -54,7 +60,18 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
     private final CharacterDefinitionMapper characterDefinitionMapper;
     private final UserService userService;
     private final ObjectMapper objectMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
+    /**
+     * 管理员登录
+     * <p>根据用户名查询管理员记录，使用 BCrypt 验证密码是否匹配。</p>
+     *
+     * @param username 管理员用户名
+     * @param password 明文密码（将与数据库中的 BCrypt 密文比对）
+     * @return 登录成功的管理员实体
+     * @throws BusinessException 用户名或密码错误时抛出 USERNAME_OR_PASSWORD_ERROR 异常
+     */
     @Override
     public Admin login(String username, String password) {
         LambdaQueryWrapper<Admin> wrapper = new LambdaQueryWrapper<>();
@@ -66,6 +83,17 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         return admin;
     }
 
+    /**
+     * 管理员注册
+     * <p>校验用户名是否已存在，使用 BCrypt 加密密码后保存管理员信息。
+     * 返回结果前会清除密码字段，避免敏感信息泄露到前端。</p>
+     *
+     * @param username 管理员用户名（不可重复）
+     * @param password 明文密码（将被 BCrypt 加密后存储）
+     * @param role     管理员角色（如 SUPER_ADMIN、ADMIN 等）
+     * @return 注册成功的管理员实体（密码字段已置空）
+     * @throws BusinessException 当用户名已存在时抛出 USERNAME_EXISTS 异常
+     */
     @Override
     public Admin register(String username, String password, String role) {
         // 检查用户名是否已存在
@@ -91,6 +119,15 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         return admin;
     }
 
+    /**
+     * 分页获取管理员列表
+     * <p>按创建时间倒序排列。返回前遍历所有记录清除密码字段，
+     * 防止密码密文泄露到前端。</p>
+     *
+     * @param page 当前页码（从 1 开始）
+     * @param size 每页记录数
+     * @return 分页后的管理员数据（密码字段已被清除）
+     */
     @Override
     public IPage<Admin> getAdminList(int page, int size) {
         Page<Admin> pageParam = new Page<>(page, size);
@@ -102,6 +139,17 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         return result;
     }
 
+    /**
+     * 删除管理员
+     * <p>安全限制：不允许管理员删除自己（防止误操作将自己锁在系统外），
+     * 不允许删除超级管理员（SUPER_ADMIN 角色，保护系统最高权限账户）。</p>
+     *
+     * @param id             待删除的管理员 ID
+     * @param currentAdminId 当前登录管理员 ID（用于防止自我删除）
+     * @throws BusinessException 当尝试删除自己时抛出 PARAM_ERROR 异常（提示"不能删除自己"）
+     * @throws BusinessException 当管理员不存在时抛出 PARAM_ERROR 异常（提示"管理员不存在"）
+     * @throws BusinessException 当尝试删除超级管理员时抛出 PARAM_ERROR 异常（提示"不能删除超级管理员"）
+     */
     @Override
     public void deleteAdmin(Long id, Long currentAdminId) {
         if (id.equals(currentAdminId)) {
@@ -117,6 +165,21 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         this.removeById(id);
     }
 
+    /**
+     * 分页查询管理员操作日志
+     * <p>支持按管理员用户名（模糊匹配）、操作模块（精确匹配）、
+     * 日期范围（起止日期）等多条件组合筛选。
+     * 日期筛选使用 >= startDate 00:00:00 且 <= endDate 23:59:59 的闭区间策略。
+     * 结果按创建时间倒序排列。</p>
+     *
+     * @param page          当前页码（从 1 开始）
+     * @param size          每页记录数
+     * @param adminUsername 管理员用户名（可选，模糊匹配 LIKE）
+     * @param module        操作模块名称（可选，精确匹配）
+     * @param startDate     起始日期（可选，格式 yyyy-MM-dd，闭区间包含当日 00:00:00）
+     * @param endDate       截止日期（可选，格式 yyyy-MM-dd，闭区间包含当日 23:59:59）
+     * @return 分页后的操作日志记录
+     */
     @Override
     public IPage<AdminOperationLog> getOperationLogs(int page, int size,
                                                       String adminUsername, String module,
@@ -138,6 +201,16 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         return adminOperationLogMapper.selectPage(new Page<>(page, size), qw);
     }
 
+    /**
+     * 管理员修改密码
+     * <p>先校验旧密码是否正确（通过 BCrypt 比对），验证通过后使用 BCrypt 加密新密码并保存。</p>
+     *
+     * @param adminId     管理员 ID
+     * @param oldPassword 旧密码（用于身份验证，明文）
+     * @param newPassword 新密码（将被 BCrypt 加密后存储）
+     * @throws BusinessException 当管理员不存在时抛出 PARAM_ERROR 异常（提示"管理员不存在"）
+     * @throws BusinessException 当旧密码错误时抛出 PARAM_ERROR 异常（提示"原密码错误"）
+     */
     @Override
     public void changePassword(Long adminId, String oldPassword, String newPassword) {
         Admin admin = this.getById(adminId);
@@ -151,8 +224,32 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         this.updateById(admin);
     }
 
+    /**
+     * 获取每日统计数据（用于管理端折线图/柱状图展示）
+     * <p>根据时间范围参数计算起始日期，查询该时间段内每天的新增注册用户数，
+     * 按日期升序生成统计数据列表。
+     * 注意：newOrders（新增订单）和 revenue（收入）字段硬编码返回 0，
+     * 因为项目目前不包含购买/支付功能，保留这两个字段仅为前端图表结构兼容。</p>
+     *
+     * @param range 时间范围，支持 "7d"（近7天）、"30d"（近30天）、"3m"（近3个月）、"6m"（近6个月），
+     *              默认按 "7d" 处理
+     * @return 每日统计数据列表，按日期升序排列，包含 newUsers、newOrders(=0)、revenue(=0)
+     */
     @Override
     public List<DailyStatsVO> getDailyStats(String range) {
+        String cacheKey = RedisConstant.DASHBOARD_DAILY + range;
+
+        // 1. 先查 Redis 缓存
+        try {
+            @SuppressWarnings("unchecked")
+            List<DailyStatsVO> cached = (List<DailyStatsVO>) redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                return cached;
+            }
+        } catch (Exception e) {
+            log.warn("Redis查询每日统计缓存失败，降级查询数据库: {}", e.getMessage());
+        }
+
         // 计算日期范围
         LocalDate endDate = LocalDate.now();
         LocalDate startDate;
@@ -198,14 +295,44 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
             stats.add(vo);
             current = current.plusDays(1);
         }
+
+        // 2. 写入 Redis 缓存（TTL 10 分钟）
+        try {
+            redisTemplate.opsForValue().set(cacheKey, stats, 10, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("Redis写入每日统计缓存失败: {}", e.getMessage());
+        }
+
         return stats;
     }
 
+    /**
+     * 获取管理端仪表盘概览数据
+     * <p>统计关键运营指标：总用户数、今日新增用户数。
+     * 注意：totalOrders、totalRevenue、todayOrders、todayRevenue 字段固定返回 0，
+     * 因为项目目前不包含购买/支付功能，保留这些字段仅为前端仪表盘结构兼容。</p>
+     *
+     * @return 包含 totalUsers（总用户数）、totalOrders(=0)、totalRevenue(=0)、
+     *         todayNewUsers（今日新增）、todayOrders(=0)、todayRevenue(=0) 的 Map
+     */
     @Override
     public Map<String, Object> getDashboardOverview() {
+        String cacheKey = RedisConstant.DASHBOARD_OVERVIEW;
+
+        // 1. 先查 Redis 缓存
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> cached = (Map<String, Object>) redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                return cached;
+            }
+        } catch (Exception e) {
+            log.warn("Redis查询仪表盘概览缓存失败，降级查询数据库: {}", e.getMessage());
+        }
+
         Map<String, Object> overview = new HashMap<>();
 
-        // 总用户数
+        // 2. 总用户数
         overview.put("totalUsers", userMapper.selectCount(null));
 
         // 总订单数（已移除购买功能，设为0）
@@ -228,9 +355,36 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         // 今日收入（已移除购买功能，设为0）
         overview.put("todayRevenue", 0);
 
+        // 3. 在线用户数（从 Redis Set 获取）
+        try {
+            Long onlineCount = stringRedisTemplate.opsForSet().size(RedisConstant.USER_ONLINE);
+            overview.put("onlineUsers", onlineCount != null ? onlineCount : 0L);
+        } catch (Exception e) {
+            log.warn("Redis查询在线用户数失败: {}", e.getMessage());
+            overview.put("onlineUsers", 0L);
+        }
+
+        // 4. 写入 Redis 缓存（TTL 5 分钟）
+        try {
+            redisTemplate.opsForValue().set(cacheKey, overview, 5, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("Redis写入仪表盘概览缓存失败: {}", e.getMessage());
+        }
+
         return overview;
     }
 
+    /**
+     * 获取用户详情（按用户 ID 查询）
+     * <p>查询用户的基本信息（密码字段已清除，防止泄露）和游戏存档数据。
+     * 存档数据包含已解锁角色、角色等级、已解锁地图、已完成地图、
+     * 成就列表、游戏币和钻石等字段，并额外附带地图定义列表（mapDefinitions）
+     * 和角色定义列表（characterDefinitions），供管理端前端渲染存档编辑界面时使用。</p>
+     *
+     * @param userId 用户 ID
+     * @return 包含 user（用户实体，无密码）和 saveData（存档各字段的 Map）的详情数据
+     * @throws BusinessException 当用户不存在时抛出 PARAM_ERROR 异常（提示"用户不存在"）
+     */
     @Override
     public Map<String, Object> getUserDetail(Long userId) {
         Map<String, Object> detail = new HashMap<>();
@@ -249,6 +403,15 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         return detail;
     }
 
+    /**
+     * 获取用户详情（按用户名查询）
+     * <p>功能与 {@link #getUserDetail(Long)} 完全一致，区别在于通过用户名定位用户。
+     * 方便管理端通过用户名快速查找玩家信息。</p>
+     *
+     * @param username 用户名
+     * @return 包含 user（用户实体，无密码）和 saveData（存档各字段的 Map）的详情数据
+     * @throws BusinessException 当用户不存在时抛出 PARAM_ERROR 异常（提示"用户不存在"）
+     */
     @Override
     public Map<String, Object> getUserDetailByUsername(String username) {
         Map<String, Object> detail = new HashMap<>();
@@ -270,8 +433,15 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
     }
 
     /**
-     * 从 t_user_save_data 加载用户的存档 JSON，解析为 Map 返回。
-     * 如果用户没有存档记录，返回默认值。
+     * 从 t_user_save_data 表加载用户的存档 JSON 数据，解析为 Map 返回
+     * <p>如果用户没有存档记录或 JSON 解析失败，则返回预设的默认值：
+     * 默认解锁战士（warrior）角色和 map_1 地图，其余字段均为空。
+     * 返回的 Map 中额外附加 mapDefinitions（活跃地图定义列表，按章节和排序序号排列）
+     * 和 characterDefinitions（活跃角色定义列表，按 ID 升序），
+     * 供管理端前端渲染存档编辑界面时展示下拉选项等配置信息。</p>
+     *
+     * @param userId 用户 ID
+     * @return 包含所有存档字段默认值的 Map，并附带地图和角色定义信息
      */
     private Map<String, Object> loadSaveData(Long userId) {
         LambdaQueryWrapper<UserSaveData> wrapper = new LambdaQueryWrapper<>();
@@ -318,6 +488,15 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         return saveData;
     }
 
+    /**
+     * 更新用户基本信息（管理端操作）
+     * <p>当前仅支持更新用户昵称（nickname）字段。从 params Map 中按 key 取出对应字段值进行更新。
+     * 可根据后续需求扩展更多可编辑字段（如账号状态等）。</p>
+     *
+     * @param userId 用户 ID
+     * @param params 待更新的字段键值对（当前支持：nickname）
+     * @throws BusinessException 当用户不存在时抛出 PARAM_ERROR 异常（提示"用户不存在"）
+     */
     @Override
     public void updateUser(Long userId, Map<String, Object> params) {
         User user = userMapper.selectById(userId);
@@ -333,6 +512,19 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         userMapper.updateById(user);
     }
 
+    /**
+     * 更新用户游戏存档数据（管理端编辑）
+     * <p>先查询用户已有的存档 JSON 并解析为 Map（保留未修改的字段），
+     * 再用 params 中的新值覆盖对应字段，实现增量合并更新。
+     * 合并后的存档数据序列化为 JSON 字符串后通过 upsert 写入 t_user_save_data 表。
+     * 支持的存档字段：coins（游戏币）、diamonds（钻石）、unlocked_characters（已解锁角色）、
+     * character_levels（角色等级 Map）、unlocked_maps（已解锁地图）、
+     * completed_maps（已完成地图）、unlocked_achievements（已解锁成就）。</p>
+     *
+     * @param userId 用户 ID
+     * @param params 待更新的存档字段键值对（按需传入，未传入的字段保留原值）
+     * @throws BusinessException 当 JSON 序列化失败时抛出 PARAM_ERROR 异常（提示"存档数据序列化失败"）
+     */
     @Override
     public void updateSaveData(Long userId, Map<String, Object> params) {
         // 查询或创建存档记录
@@ -401,6 +593,16 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
         }
     }
 
+    /**
+     * 彻底删除用户（管理端操作）
+     * <p>采用先删关联数据再删主数据的顺序：
+     * 第一步删除 t_user_save_data 表中该用户的存档记录（通过 userId 匹配）；
+     * 第二步删除 t_user 表中该用户的账号记录。
+     * 这种顺序可以避免因外键约束或孤儿数据导致的问题。</p>
+     *
+     * @param userId 用户 ID
+     * @throws BusinessException 当用户不存在时抛出 PARAM_ERROR 异常（提示"用户不存在"）
+     */
     @Override
     public void deleteUserCompletely(Long userId) {
         User user = userMapper.selectById(userId);

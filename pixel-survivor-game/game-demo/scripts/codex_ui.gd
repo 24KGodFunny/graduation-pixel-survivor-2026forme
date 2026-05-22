@@ -6,7 +6,6 @@ enum TabType { WEAPONS, PASSIVES }
 var current_tab: TabType = TabType.WEAPONS
 var selected_item_id: String = ""
 
-var tab_container: TabContainer
 var weapon_list: ItemList
 var passive_list: ItemList
 var detail_panel: VBoxContainer

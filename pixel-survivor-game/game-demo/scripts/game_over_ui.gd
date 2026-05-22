@@ -12,7 +12,7 @@ func _ready():
 	layer = 100
 	# 播放失败BGM
 	if AudioManager:
-		AudioManager.play_bgm("res://assets/audio/bgm_defeat.wav")
+		AudioManager.play_bgm("res://assets/audio/bgm_gameover.wav")
 	_build_ui()
 	_populate_stats()
 	_start_reveal_animation()
