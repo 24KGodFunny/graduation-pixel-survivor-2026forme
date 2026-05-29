@@ -112,3 +112,15 @@ export function updateUser(userId, data) {
 export function updateSaveData(userId, data) {
   return request.put(`/users/${userId}/save-data`, data)
 }
+
+// ==================== 地图统计 ====================
+/** 获取地图通关统计，range 可为 '1d' | '7d' | '30d' */
+export function getMapStats(range) {
+  return request.get('/map-stats', { params: { range } })
+}
+
+// ==================== DAU ====================
+/** 获取每日活跃用户统计，range 可为 '7d' | '30d' */
+export function getDauStats(range) {
+  return request.get('/dashboard/dau', { params: { range } })
+}

@@ -20,6 +20,10 @@ run/main_scene="res://scenes/splash_screen.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[audio]
+
+buses/default_bus_layout="uid://e82hwj8bwv2s"
+
 [autoload]
 
 Database="*res://scripts/autoload/database.gd"
@@ -30,6 +34,10 @@ SaveManager="*res://scripts/autoload/save_manager.gd"
 DialogueManager="*res://scripts/autoload/dialogue_manager.gd"
 NetworkManager="*res://scripts/autoload/network_manager.gd"
 DisplayManager="*res://scripts/autoload/display_manager.gd"
+InputHelper="*uid://cholww48njaeh"
+PhantomCameraManager="*uid://duq6jhf6unyis"
+SceneManager="*uid://j20v4cg7v8m1"
+SoundManager="*uid://6q1wagejt60k"
 
 [display]
 
@@ -37,6 +45,10 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/AS2P/plugin.cfg", "res://addons/Todo_Manager/plugin.cfg", "res://addons/csv-data-importer/plugin.cfg", "res://addons/gd-blender-3d-shortcuts/plugin.cfg", "res://addons/gdfxr/plugin.cfg", "res://addons/godot_state_charts/plugin.cfg", "res://addons/godotsize/plugin.cfg", "res://addons/input_helper/plugin.cfg", "res://addons/nklbdev.importality/plugin.cfg", "res://addons/phantom_camera/plugin.cfg", "res://addons/scene_manager/plugin.cfg", "res://addons/scene_painter/plugin.cfg", "res://addons/script-ide/plugin.cfg", "res://addons/sound_manager/plugin.cfg")
 
 [input]
 

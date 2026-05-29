@@ -11,6 +11,10 @@ signal sync_upload_failed(error: String)
 signal sync_download_success(data: Dictionary)
 signal sync_download_failed(error: String)
 signal token_verify_failed()
+signal map_record_submitted()
+signal checkin_success()
+signal checkin_failed(error: String)
+signal monthly_checkin_received(dates: Array)
 
 # API 配置 - 请根据实际部署地址修改
 const API_BASE_URL = "http://localhost:8080"
@@ -30,6 +34,7 @@ var _pending_sync_request: String = ""
 # HTTP 请求节点
 var http_request: HTTPRequest
 var sync_http_request: HTTPRequest
+var record_http_request: HTTPRequest
 
 func _ready():
 	# 创建 HTTP 请求节点
@@ -37,12 +42,18 @@ func _ready():
 	http_request.timeout = 10.0
 	add_child(http_request)
 	http_request.request_completed.connect(_on_request_completed)
-	
+
 	# 创建同步专用 HTTP 请求节点
 	sync_http_request = HTTPRequest.new()
 	sync_http_request.timeout = 30.0
 	add_child(sync_http_request)
 	sync_http_request.request_completed.connect(_on_sync_request_completed)
+
+	# 创建地图记录专用 HTTP 请求节点（fire-and-forget）
+	record_http_request = HTTPRequest.new()
+	record_http_request.timeout = 10.0
+	add_child(record_http_request)
+	record_http_request.request_completed.connect(_on_record_request_completed)
 
 # 登录请求
 func login(user: String, pwd: String):
@@ -54,7 +65,7 @@ func login(user: String, pwd: String):
 		"username": user,
 		"password": pwd
 	})
-	
+
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, body)
 	if error != OK:
 		login_failed.emit("请求发送失败")
@@ -69,7 +80,7 @@ func register(user: String, pwd: String, nick: String):
 		"password": pwd,
 		"nickname": nick if nick != "" else user
 	})
-	
+
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, body)
 	if error != OK:
 		register_failed.emit("请求发送失败")
@@ -84,28 +95,64 @@ func get_user_info():
 		"Content-Type: application/json",
 		"Authorization: Bearer " + token
 	]
-	
+
 	var error = http_request.request(url, headers, HTTPClient.METHOD_GET)
 	if error != OK:
 		print("获取用户信息失败")
+
+# 提交通关/失败记录（fire-and-forget，不阻塞 UI）
+func submit_map_record(record_data: Dictionary):
+	if token == "":
+		return
+	var url = API_BASE_URL + "/api/game/map-record/submit"
+	var headers = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + token
+	]
+	var body = JSON.stringify(record_data)
+	record_http_request.request(url, headers, HTTPClient.METHOD_POST, body)
+
+# 每日签到
+func checkin():
+	if token == "":
+		return
+	_pending_request = "checkin"
+	var url = API_BASE_URL + "/api/game/checkin"
+	var headers = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + token
+	]
+	http_request.request(url, headers, HTTPClient.METHOD_POST, "")
+
+# 获取月度签到状态
+func get_monthly_checkin(year: int, month: int):
+	if token == "":
+		return
+	_pending_request = "monthly_checkin"
+	var url = API_BASE_URL + "/api/game/checkin/monthly?year=%d&month=%d" % [year, month]
+	var headers = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + token
+	]
+	http_request.request(url, headers, HTTPClient.METHOD_GET)
 
 # 处理请求完成
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_handle_error("网络请求失败")
 		return
-	
+
 	var json = JSON.new()
 	var error = json.parse(body.get_string_from_utf8())
 	if error != OK:
 		_handle_error("响应解析失败")
 		return
-	
+
 	var response = json.data
 	if not response is Dictionary:
 		_handle_error("无效的响应格式")
 		return
-	
+
 	# 根据响应码处理
 	if response_code == 200:
 		_handle_success_response(response)
@@ -116,7 +163,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 # 处理成功响应
 func _handle_success_response(response: Dictionary):
 	var data = response.get("data", {})
-	
+
 	# 根据请求类型处理响应
 	if _pending_request == "login":
 		# 登录成功
@@ -138,6 +185,14 @@ func _handle_success_response(response: Dictionary):
 			user_info_received.emit(data)
 		else:
 			print("用户信息响应格式错误")
+	elif _pending_request == "checkin":
+		checkin_success.emit()
+	elif _pending_request == "monthly_checkin":
+		var dates = []
+		if data is Array:
+			for d in data:
+				dates.append(d)
+		monthly_checkin_received.emit(dates)
 	else:
 		# 未知请求类型，尝试自动判断
 		if data is Dictionary and data.has("token"):
@@ -160,12 +215,26 @@ func _handle_error(error_msg: String):
 	elif _pending_request == "user_info":
 		print("Token验证失败: ", error_msg)
 		token_verify_failed.emit()
+	elif _pending_request == "checkin":
+		checkin_failed.emit(error_msg)
+	elif _pending_request == "monthly_checkin":
+		checkin_failed.emit(error_msg)
 	else:
 		if not is_logged_in:
 			login_failed.emit(error_msg)
 		else:
 			print("网络错误: ", error_msg)
 	_pending_request = ""
+
+# 处理地图记录请求完成（fire-and-forget，仅打印日志）
+func _on_record_request_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray):
+	if result != HTTPRequest.RESULT_SUCCESS:
+		print("地图记录提交失败: 网络错误")
+		return
+	if response_code == 200:
+		map_record_submitted.emit()
+	else:
+		print("地图记录提交失败: HTTP ", response_code)
 
 # 检查 sync_http_request 是否正在处理请求，如果是则先取消
 func _cancel_pending_sync_request():

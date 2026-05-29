@@ -41,13 +41,29 @@
       </el-col>
     </el-row>
 
+    <!-- DAU 折线图 -->
+    <el-row :gutter="20" class="chart-row">
+      <el-col :span="24">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>📊 每日活跃用户 (DAU)</h3>
+            <el-radio-group v-model="dauDays" size="small" @change="loadDauStats">
+              <el-radio-button value="7d">近7天</el-radio-button>
+              <el-radio-button value="30d">近30天</el-radio-button>
+            </el-radio-group>
+          </div>
+          <div ref="dauChartRef" class="chart-container"></div>
+        </div>
+      </el-col>
+    </el-row>
+
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import { getDashboardStats, getDailyStats } from '../api/admin'
+import { getDashboardStats, getDailyStats, getDauStats } from '../api/admin'
 
 // 概览统计数据（总用户数、今日新增）
 const stats = reactive({
@@ -62,6 +78,11 @@ const trendChartRef = ref(null)
 // ECharts 实例引用，用于后续 resize/dispose
 let trendChart = null
 
+// DAU 图表相关
+const dauDays = ref('7d')
+const dauChartRef = ref(null)
+let dauChart = null
+
 /**
  * 页面挂载时的初始化流程：
  * 1. 先加载概览统计数据（卡片）
@@ -70,11 +91,13 @@ let trendChart = null
 onMounted(async () => {
   await loadStats()
   await loadDailyStats()
+  await loadDauStats()
 })
 
 // 组件卸载时销毁 ECharts 实例，释放资源
 onUnmounted(() => {
   trendChart?.dispose()
+  dauChart?.dispose()
 })
 
 /**
@@ -107,6 +130,88 @@ async function loadDailyStats() {
   } catch (e) {
     console.error('加载每日统计失败', e)
   }
+}
+
+/**
+ * 加载 DAU 统计数据并渲染折线图
+ */
+async function loadDauStats() {
+  try {
+    const res = await getDauStats(dauDays.value)
+    if (res.code === 200) {
+      await nextTick()
+      initDauChart(res.data || [])
+    }
+  } catch (e) {
+    console.error('加载DAU统计失败', e)
+  }
+}
+
+/**
+ * 初始化 DAU 折线图
+ */
+function initDauChart(data) {
+  if (!dauChartRef.value) return
+  if (dauChart) dauChart.dispose()
+
+  dauChart = echarts.init(dauChartRef.value)
+
+  const dates = data.map(d => d.date)
+  const dau = data.map(d => d.dau || 0)
+
+  dauChart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(15, 12, 40, 0.9)',
+      borderColor: 'rgba(100, 80, 200, 0.3)',
+      textStyle: { color: '#d4d0e8' }
+    },
+    legend: {
+      data: ['DAU'],
+      textStyle: { color: '#a098b8' },
+      top: 5
+    },
+    grid: {
+      left: 50,
+      right: 20,
+      top: 45,
+      bottom: 30
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLine: { lineStyle: { color: 'rgba(100, 80, 200, 0.2)' } },
+      axisLabel: { color: '#8a80a8', fontSize: 11 }
+    },
+    yAxis: {
+      type: 'value',
+      name: '活跃用户',
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: 'rgba(100, 80, 200, 0.08)' } },
+      axisLabel: { color: '#8a80a8' }
+    },
+    series: [
+      {
+        name: 'DAU',
+        type: 'line',
+        data: dau,
+        smooth: true,
+        lineStyle: {
+          color: '#818cf8',
+          width: 3
+        },
+        itemStyle: {
+          color: '#a78bfa'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(129, 140, 248, 0.4)' },
+            { offset: 1, color: 'rgba(129, 140, 248, 0.02)' }
+          ])
+        }
+      }
+    ]
+  })
 }
 
 /**
@@ -211,6 +316,7 @@ function initTrendChart(data) {
 // 监听浏览器窗口 resize 事件，自动重绘图表以适配新尺寸
 window.addEventListener('resize', () => {
   trendChart?.resize()
+  dauChart?.resize()
 })
 </script>
 

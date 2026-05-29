@@ -167,9 +167,30 @@ func _process(delta):
 			animation_done = true
 			buttons_container.visible = true
 
+func _submit_map_record():
+	var weapons_arr = []
+	for w in GameManager.equipped_weapons:
+		if Database.weapons.has(w["id"]):
+			weapons_arr.append({"id": w["id"], "name": Database.weapons[w["id"]]["name"], "level": w["level"] + 1})
+	var record = {
+		"mapCode": GameManager.selected_map_id,
+		"charCode": GameManager.selected_character_id,
+		"result": 0,
+		"durationSeconds": int(GameManager.game_time),
+		"killCount": GameManager.kill_count,
+		"totalDamage": int(GameManager.total_damage_dealt),
+		"damageTaken": GameManager.damage_taken,
+		"coinsCollected": GameManager.player_coins,
+		"playerLevel": GameManager.player_level,
+		"weaponsJson": JSON.stringify(weapons_arr),
+		"rating": null
+	}
+	NetworkManager.submit_map_record(record)
+
 func _on_retry():
 	# 失败结算时自动上传存档
 	if NetworkManager.is_logged_in:
+		_submit_map_record()
 		NetworkManager.sync_upload()
 	queue_free()
 	get_tree().paused = false
@@ -178,6 +199,7 @@ func _on_retry():
 func _on_return_menu():
 	# 失败结算时自动上传存档
 	if NetworkManager.is_logged_in:
+		_submit_map_record()
 		NetworkManager.sync_upload()
 	queue_free()
 	get_tree().paused = false

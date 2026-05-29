@@ -35,6 +35,12 @@ const routes = [
         meta: { title: '用户管理' }
       },
       {
+        path: 'map-stats',
+        name: 'MapStats',
+        component: () => import('../views/MapStats.vue'),
+        meta: { title: '地图统计' }
+      },
+      {
         path: 'user-data',
         name: 'UserDataManage',
         component: () => import('../views/UserDataManage.vue'),

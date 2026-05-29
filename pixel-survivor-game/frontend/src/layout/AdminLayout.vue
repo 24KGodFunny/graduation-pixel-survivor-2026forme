@@ -18,6 +18,10 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>数据概览</span>
         </el-menu-item>
+        <el-menu-item index="/map-stats">
+          <el-icon><TrendCharts /></el-icon>
+          <span>地图统计</span>
+        </el-menu-item>
         <el-menu-item index="/users">
           <el-icon><User /></el-icon>
           <span>用户管理</span>

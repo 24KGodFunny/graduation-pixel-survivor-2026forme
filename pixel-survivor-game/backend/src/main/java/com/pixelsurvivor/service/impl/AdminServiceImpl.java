@@ -17,6 +17,7 @@ import com.pixelsurvivor.entity.MapDefinition;
 import com.pixelsurvivor.entity.User;
 import com.pixelsurvivor.entity.UserSaveData;
 import com.pixelsurvivor.entity.vo.DailyStatsVO;
+import com.pixelsurvivor.entity.vo.DauStatsVO;
 import com.pixelsurvivor.mapper.AdminMapper;
 import com.pixelsurvivor.mapper.AdminOperationLogMapper;
 import com.pixelsurvivor.mapper.CharacterDefinitionMapper;
@@ -617,5 +618,47 @@ public class AdminServiceImpl extends ServiceImpl<AdminMapper, Admin> implements
 
         // 最后删除用户本身
         userMapper.deleteById(userId);
+    }
+
+    /**
+     * 获取每日活跃用户(DAU)统计数据
+     * <p>统计每天有多少不同的用户登录过游戏（last_login_at 在当日），
+     * 按日期分组计数，返回每日 DAU 列表。</p>
+     */
+    @Override
+    public List<DauStatsVO> getDauStats(String range) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = switch (range) {
+            case "30d" -> endDate.minusDays(30);
+            default -> endDate.minusDays(7);
+        };
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        // 查询 last_login_at 在范围内的用户
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(User::getLastLoginAt)
+               .ge(User::getLastLoginAt, LocalDateTime.of(startDate, LocalTime.MIN))
+               .le(User::getLastLoginAt, LocalDateTime.of(endDate, LocalTime.MAX));
+        List<User> users = userMapper.selectList(wrapper);
+
+        // 按登录日期分组计数
+        Map<String, Long> dauByDate = users.stream()
+                .collect(Collectors.groupingBy(
+                        u -> u.getLastLoginAt().toLocalDate().format(formatter),
+                        Collectors.counting()));
+
+        // 组装每日 DAU 数据
+        List<DauStatsVO> stats = new ArrayList<>();
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            String dateStr = current.format(formatter);
+            DauStatsVO vo = new DauStatsVO();
+            vo.setDate(dateStr);
+            vo.setDau(dauByDate.getOrDefault(dateStr, 0L));
+            stats.add(vo);
+            current = current.plusDays(1);
+        }
+        return stats;
     }
 }

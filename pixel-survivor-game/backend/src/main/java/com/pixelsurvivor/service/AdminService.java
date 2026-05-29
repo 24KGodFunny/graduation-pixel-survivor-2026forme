@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.pixelsurvivor.entity.Admin;
 import com.pixelsurvivor.entity.AdminOperationLog;
 import com.pixelsurvivor.entity.vo.DailyStatsVO;
+import com.pixelsurvivor.entity.vo.DauStatsVO;
 
 import java.util.List;
 import java.util.Map;
@@ -91,4 +92,9 @@ public interface AdminService extends IService<Admin> {
      * 删除用户及其所有关联数据
      */
     void deleteUserCompletely(Long userId);
+
+    /**
+     * 获取每日活跃用户(DAU)统计数据
+     */
+    List<DauStatsVO> getDauStats(String range);
 }

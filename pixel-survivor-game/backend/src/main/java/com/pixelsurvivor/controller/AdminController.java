@@ -7,7 +7,10 @@ import com.pixelsurvivor.common.result.Result;
 import com.pixelsurvivor.common.util.JwtUtil;
 import com.pixelsurvivor.entity.*;
 import com.pixelsurvivor.entity.vo.DailyStatsVO;
+import com.pixelsurvivor.entity.vo.DauStatsVO;
+import com.pixelsurvivor.entity.vo.MapStatsVO;
 import com.pixelsurvivor.service.AdminService;
+import com.pixelsurvivor.service.MapRecordService;
 import com.pixelsurvivor.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +33,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final UserService userService;
+    private final MapRecordService mapRecordService;
     private final JwtUtil jwtUtil;
 
     /**
@@ -235,5 +239,26 @@ public class AdminController {
     public Result<Void> deleteUser(@PathVariable Long userId) {
         adminService.deleteUserCompletely(userId);
         return Result.success();
+    }
+
+    // ==================== 数据统计 ====================
+
+    /**
+     * 获取地图通关统计
+     */
+    @GetMapping("/map-stats")
+    @OperationLog(module = "数据统计", operation = "查询", description = "查询地图通关统计")
+    public Result<List<MapStatsVO>> getMapStats(
+            @RequestParam(defaultValue = "7d") String range) {
+        return Result.success(mapRecordService.getMapStats(range));
+    }
+
+    /**
+     * 获取每日活跃用户(DAU)统计
+     */
+    @GetMapping("/dashboard/dau")
+    public Result<List<DauStatsVO>> getDauStats(
+            @RequestParam(defaultValue = "7d") String range) {
+        return Result.success(adminService.getDauStats(range));
     }
 }

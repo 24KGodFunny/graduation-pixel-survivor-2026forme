@@ -31,6 +31,14 @@ spring:
           min-idle: 5
           max-wait: 3000ms
 
+# RocketMQ
+rocketmq:
+  name-server: localhost:9876
+  producer:
+    group: pixel-survivor-producer
+    send-message-timeout: 3000
+    retry-times-when-send-failed: 2
+
 # MyBatis-Plus
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml

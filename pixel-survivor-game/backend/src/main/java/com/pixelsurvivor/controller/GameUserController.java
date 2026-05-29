@@ -4,6 +4,7 @@ import com.pixelsurvivor.common.annotation.RateLimit;
 import com.pixelsurvivor.common.result.Result;
 import com.pixelsurvivor.common.util.JwtUtil;
 import com.pixelsurvivor.entity.User;
+import com.pixelsurvivor.mq.UserActivityProducer;
 import com.pixelsurvivor.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +26,7 @@ public class GameUserController {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final UserActivityProducer userActivityProducer;
 
     /**
      * 用户登录
@@ -41,6 +43,8 @@ public class GameUserController {
         data.put("token", token);
         data.put("userId", user.getId());
         data.put("nickname", user.getNickname());
+        // 发送登录事件到 MQ，异步更新 last_login_at
+        userActivityProducer.sendLoginEvent(user.getId());
         return Result.success(data);
     }
 

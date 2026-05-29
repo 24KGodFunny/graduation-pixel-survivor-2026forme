@@ -80,27 +80,6 @@ CREATE TABLE t_user_character (
     UNIQUE KEY uk_user_char (user_id, character_code)
 ) ENGINE=InnoDB COMMENT='用户角色表(角色定义由游戏客户端资源管理)';
 
--- -----------------------------------------------------------
--- 4. 用户成就进度表（成就定义由游戏客户端资源管理）
---    achievement_code 对应游戏客户端 achievements.json 中的 id 字段
---    成就名、条件、奖励等均在客户端资源中定义
---    数据库只记录用户的成就进度和领取状态
--- -----------------------------------------------------------
-CREATE TABLE t_user_achievement (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    achievement_code VARCHAR(50) NOT NULL COMMENT '成就编码，对应游戏客户端资源ID',
-    progress INT DEFAULT 0 COMMENT '当前进度',
-    is_completed TINYINT DEFAULT 0 COMMENT '是否已完成',
-    is_rewarded TINYINT DEFAULT 0 COMMENT '是否已领取奖励',
-    completed_at DATETIME DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_user_ach (user_id, achievement_code),
-    INDEX idx_user_id (user_id)
-) ENGINE=InnoDB COMMENT='用户成就进度表(成就定义由游戏客户端资源管理)';
-
-
 -- ============================================================
 -- 二、管理员相关表
 -- ============================================================
@@ -225,41 +204,34 @@ INSERT INTO t_map_definition (map_code, map_name, chapter, order_index, required
 ('crimson_forest', '森林',       1, 3, 'wasteland',     1);
 
 
--- ============================================================
--- 四、商品相关表
--- ============================================================
+-- . 地图通关/失败记录表
+CREATE TABLE IF NOT EXISTS `t_map_record` (
+                                              `id`              BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                                              `user_id`         BIGINT       NOT NULL COMMENT '关联 t_user.id',
+                                              `map_code`        VARCHAR(64)  NOT NULL COMMENT '地图编码, 如 endless_road',
+    `char_code`       VARCHAR(64)  NOT NULL COMMENT '角色编码',
+    `result`          TINYINT      NOT NULL COMMENT '1=胜利, 0=失败',
+    `duration_seconds` INT         NOT NULL COMMENT '运行时长(秒)',
+    `kill_count`      INT          NOT NULL DEFAULT 0 COMMENT '击杀数',
+    `total_damage`    BIGINT       NOT NULL DEFAULT 0 COMMENT '总伤害',
+    `damage_taken`    BIGINT       NOT NULL DEFAULT 0 COMMENT '承受伤害',
+    `coins_collected` INT          NOT NULL DEFAULT 0 COMMENT '收集金币',
+    `player_level`    INT          NOT NULL DEFAULT 1 COMMENT '玩家等级',
+    `weapons_json`    JSON         DEFAULT NULL COMMENT '装备武器列表',
+    `rating`          VARCHAR(2)   DEFAULT NULL COMMENT '评价等级 S/A/B/C/D (仅胜利)',
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+    INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_map_code` (`map_code`),
+    INDEX `idx_created_at` (`created_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地图通关/失败记录';
 
--- -----------------------------------------------------------
--- 9. 商品表（仅存运营数据，商品详情由游戏客户端资源定义）
---    item_code 对应游戏客户端 shop_items.json 中的 id 字段
---    商品名称、描述、图片、效果等均在客户端资源中定义
--- -----------------------------------------------------------
-CREATE TABLE t_shop_item (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    item_code VARCHAR(50) NOT NULL UNIQUE COMMENT '商品编码，对应游戏客户端资源ID，如 item_heal_potion',
-    price_coin INT DEFAULT 0 COMMENT '游戏币价格(0表示不可用游戏币购买)',
-    price_diamond INT DEFAULT 0 COMMENT '钻石价格(0表示不可用钻石购买)',
-    stock INT DEFAULT -1 COMMENT '库存(-1为无限)',
-    max_buy_count INT DEFAULT -1 COMMENT '每人限购(-1为无限)',
-    status TINYINT DEFAULT 1 COMMENT '1上架 0下架',
-    sort_order INT DEFAULT 0 COMMENT '排序权重',
-    start_time DATETIME DEFAULT NULL COMMENT '上架开始时间(NULL=永久)',
-    end_time DATETIME DEFAULT NULL COMMENT '上架结束时间(NULL=永久)',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_status (status),
-    INDEX idx_item_code (item_code)
-) ENGINE=InnoDB COMMENT='商品表(仅存运营数据，商品详情由游戏客户端资源定义)';
+-- . 用户每日签到记录表
+CREATE TABLE IF NOT EXISTS `t_user_checkin` (
+                                                `id`           BIGINT   NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                                                `user_id`      BIGINT   NOT NULL COMMENT '关联 t_user.id',
+                                                `checkin_date` DATE     NOT NULL COMMENT '签到日期',
+                                                `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                UNIQUE KEY `uk_user_date` (`user_id`, `checkin_date`),
+    INDEX `idx_user_id` (`user_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户每日签到记录';
 
--- 初始商品数据（10个商品）
-INSERT INTO t_shop_item (item_code, price_coin, price_diamond, stock, max_buy_count, status, sort_order) VALUES
-('item_heal_potion', 100, 0, -1, -1, 1, 1),
-('item_super_heal_potion', 300, 10, -1, -1, 1, 2),
-('item_shield', 200, 0, -1, -1, 1, 3),
-('item_atk_boost', 150, 0, -1, -1, 1, 4),
-('item_speed_boost', 120, 0, -1, -1, 1, 5),
-('item_revive_token', 0, 50, -1, 3, 1, 6),
-('item_exp_boost', 0, 30, -1, 5, 1, 7),
-('item_coin_magnet', 250, 0, -1, -1, 1, 8),
-('pack_starter', 0, 88, -1, 1, 1, 9),
-('pack_advanced', 0, 288, -1, 1, 1, 10);

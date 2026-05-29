@@ -256,6 +256,27 @@ func _on_return_menu():
 	
 	# 5. 通关结算时自动上传存档
 	if NetworkManager.is_logged_in:
+		# 提交地图通关记录
+		var rating = _calculate_rating()
+		var rating_letter = rating["text"].split(" ")[0]
+		var weapons_arr = []
+		for w in GameManager.equipped_weapons:
+			if Database.weapons.has(w["id"]):
+				weapons_arr.append({"id": w["id"], "name": Database.weapons[w["id"]]["name"], "level": w["level"] + 1})
+		var record = {
+			"mapCode": GameManager.selected_map_id,
+			"charCode": GameManager.selected_character_id,
+			"result": 1,
+			"durationSeconds": int(GameManager.game_time),
+			"killCount": GameManager.kill_count,
+			"totalDamage": int(GameManager.total_damage_dealt),
+			"damageTaken": GameManager.damage_taken,
+			"coinsCollected": GameManager.coins_collected,
+			"playerLevel": GameManager.player_level,
+			"weaponsJson": JSON.stringify(weapons_arr),
+			"rating": rating_letter
+		}
+		NetworkManager.submit_map_record(record)
 		NetworkManager.sync_upload()
 	
 	queue_free()

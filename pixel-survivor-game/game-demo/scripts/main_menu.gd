@@ -31,6 +31,7 @@ func _ready():
 	_update_sync_buttons()
 	_add_codex_button()
 	_add_settings_button()
+	_add_checkin_button()
 	# 尝试自动登录并验证token
 	var did_auto_login = NetworkManager.auto_login()
 	if did_auto_login:
@@ -627,6 +628,31 @@ func _add_settings_button():
 		settings_btn.pressed.connect(_on_settings_pressed)
 		parent.add_child(settings_btn)
 		parent.move_child(settings_btn, back_btn.get_index())
+
+func _add_checkin_button():
+	if back_btn and back_btn.get_parent():
+		var parent = back_btn.get_parent()
+		var checkin_btn = Button.new()
+		checkin_btn.text = "签到"
+		checkin_btn.custom_minimum_size = Vector2(100, 36)
+		checkin_btn.pressed.connect(_on_checkin_pressed)
+		parent.add_child(checkin_btn)
+		parent.move_child(checkin_btn, back_btn.get_index())
+
+func _on_checkin_pressed():
+	if not NetworkManager.is_logged_in:
+		var dialog = AcceptDialog.new()
+		dialog.title = "提示"
+		dialog.dialog_text = "请先登录后再签到"
+		dialog.ok_button_text = "确定"
+		add_child(dialog)
+		dialog.popup_centered(Vector2i(280, 100))
+		dialog.confirmed.connect(func(): dialog.queue_free())
+		return
+	var checkin_scene = load("res://scripts/checkin_ui.gd")
+	var checkin_ui = CanvasLayer.new()
+	checkin_ui.set_script(checkin_scene)
+	add_child(checkin_ui)
 
 func _on_settings_pressed():
 	var settings_scene = load("res://scripts/settings_ui.gd")

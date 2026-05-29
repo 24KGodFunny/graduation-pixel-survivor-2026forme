@@ -22,6 +22,7 @@
 | 数据库 | MySQL | 8.0 |
 | 缓存 | Redis | 7.x |
 | 分布式锁 | Redisson | 3.x |
+| 消息队列 | RocketMQ | 2.x |
 | 认证 | JWT (jjwt) + BCrypt | - |
 | API文档 | Knife4j | 4.x |
 | 前端框架 | Vue 3 | 3.4+ |
@@ -37,6 +38,7 @@
 - JDK 17+
 - MySQL 8.0
 - Redis 7.x
+- RocketMQ（nameserver 默认 localhost:9876）
 - Maven 3.6+
 - Node.js 18+
 - Godot 4.x
@@ -46,7 +48,8 @@
 ```bash
 # 连接 MySQL，执行初始化脚本
 mysql -u root -p < backend/sql/init.sql
-# 或使用 Navicat / DataGrip 打开并执行 backend/sql/init.sql
+# 执行增量更新（新增地图记录表、签到表）
+mysql -u root -p pixel_survivor < backend/sql/update_001.sql
 ```
 
 数据库名为 `pixel_survivor`，默认管理员账号 `admin` / 密码 `admin123`。
@@ -93,7 +96,7 @@ pixel-survivor-game/
 │   └── resume.md                # 简历编写与面试准备指南
 ├── backend/                     # Spring Boot 后端
 │   ├── src/main/java/com/pixelsurvivor/
-│   │   ├── common/              # 通用组件（Result, Exception, Annotation, AOP, JWT）
+│   │   ├── common/              # 通用组件（Result, Exception, Annotation, AOP, JWT, MQ常量）
 │   │   ├── config/              # 配置（Security, Web, Redis, Redisson）
 │   │   ├── config/interceptor/  # 拦截器（GameAuth, AdminAuth, RateLimit）
 │   │   ├── controller/          # 控制器
@@ -101,15 +104,19 @@ pixel-survivor-game/
 │   │   ├── mapper/              # MyBatis-Plus Mapper
 │   │   ├── entity/              # 实体类
 │   │   ├── dto/                 # 数据传输对象
+│   │   ├── mq/                  # RocketMQ Producer/Consumer
 │   │   └── task/                # 定时任务
 │   ├── src/main/resources/
 │   │   └── application.yml      # 应用配置
-│   └── sql/init.sql             # 数据库初始化脚本
+│   └── sql/
+│       ├── init.sql             # 数据库初始化脚本
+│       └── update_001.sql       # 增量更新（地图记录+签到）
 ├── frontend/                    # Vue 3 管理后台
 │   └── src/
 │       ├── views/               # 页面组件
 │       │   ├── Login.vue        # 登录页（黑洞动画）
-│       │   ├── Dashboard.vue    # 仪表盘
+│       │   ├── Dashboard.vue    # 仪表盘（含DAU折线图）
+│       │   ├── MapStats.vue     # 地图通关统计
 │       │   ├── UserManage.vue   # 用户管理
 │       │   ├── UserDataManage.vue # 用户数据管理
 │       │   ├── OperationLogs.vue  # 操作日志
@@ -125,11 +132,14 @@ pixel-survivor-game/
     ├── scenes/                  # 场景文件 (.tscn)
     ├── scripts/                 # GDScript 脚本
     │   ├── autoload/            # 全局自动加载（database, save_manager, network_manager 等）
+    │   ├── checkin_ui.gd        # 签到活动界面
     │   ├── player.gd            # 玩家控制
     │   ├── enemy_base.gd        # 敌人行为
     │   ├── boss.gd              # Boss 逻辑
     │   ├── hud.gd               # HUD 界面
     │   └── ...
+    ├── tools/                   # 开发工具脚本
+    │   └── generate_placeholder_art.py  # 占位美术生成
     └── assets/                  # 美术/音频资源
         ├── images/              # 精灵图（角色、敌人、Boss、武器、UI等）
         └── audio/               # 音效与背景音乐
@@ -145,8 +155,9 @@ pixel-survivor-game/
 - 4 种敌人 + 5 个 Boss（多阶段战斗）
 - 4 张地图（线性解锁）
 - 升级选择 Buff 的 Roguelike 核心循环
-- 胜利/失败结算 + 评级系统
+- 胜利/失败结算 + 评级系统（通关/失败数据自动上报）
 - 用户注册/登录 + 云存档同步
+- 每日签到活动（月度日历界面）
 - 音频系统（BGM/SFX 独立音量控制）
 - 设置（音量、全屏、按键自定义）
 - 主菜单、角色选择、地图选择、图鉴、暂停、对话等完整 UI
@@ -155,14 +166,18 @@ pixel-survivor-game/
 
 - JWT 双Token认证（游戏端 2h / 管理端 8h）
 - Redis 多场景应用（缓存、限流、分布式锁、在线追踪）
+- RocketMQ 消息队列（通关记录异步入库、登录事件异步处理）
 - AOP 操作日志自动审计
 - 云存档 JSON Blob 同步
+- 地图通关/失败记录采集
+- 用户每日签到系统
 - 管理端完整 CRUD API
 
 ### 管理后台
 
 - 黑洞动画登录页
-- 数据仪表盘（ECharts 图表）
+- 数据仪表盘（ECharts 图表 + DAU 折线图）
+- 地图通关统计（表格 + 堆叠柱状图，支持 1d/7d/30d 筛选）
 - 用户管理（搜索、封禁/解封、删除）
 - 用户数据管理（查看/编辑存档 JSON）
 - 操作日志（筛选、分页）
@@ -173,7 +188,7 @@ pixel-survivor-game/
 | 文档 | 说明 |
 |------|------|
 | [系统架构文档](pixel-survivor-game/docs/architecture.md) | 整体架构、技术选型、Redis缓存架构、安全设计 |
-| [数据库设计文档](pixel-survivor-game/docs/database-design.md) | 9 张表的完整表结构、ER关系、初始数据 |
+| [数据库设计文档](pixel-survivor-game/docs/database-design.md) | 11 张表的完整表结构、ER关系、初始数据 |
 | [API 接口文档](pixel-survivor-game/docs/api-design.md) | 游戏端 + 管理端全部接口，含请求/响应示例 |
 | [游戏设计文档](pixel-survivor-game/docs/game-design.md) | 角色、武器、敌人、Boss、地图、战斗机制详情 |
 | [数据同步接口文档](pixel-survivor-game/docs/sync-api-design.md) | JSON Blob 云存档同步的完整规范 |
