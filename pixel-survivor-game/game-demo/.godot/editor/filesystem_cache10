@@ -1,5 +1,5 @@
 63f7b34db8d8cdea90c76aacccf841ec
-::res://::1779438361
+::res://::1779697976
 icon.svg::CompressedTexture2D::1455938811980912097::1778063926::1778066437::1::::<><><>0<>0<>d9499a7f35976b61783b8dde6a7285cb<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 ::res://assets/::1778063840
 ::res://assets/audio/::1778491022
@@ -200,7 +200,7 @@ main_menu.tscn::PackedScene::-1::1778164478::0::1::::<><><>0<>0<><>::res://scrip
 map_select.tscn::PackedScene::-1::1778140588::0::1::::<><><>0<>0<><>::res://scripts/map_select.gd
 splash_screen.tscn::PackedScene::-1::1778140481::0::1::::<><><>0<>0<><>::res://scripts/splash_screen.gd
 title_screen.tscn::PackedScene::2796974152704::1778266042::0::1::::<><><>0<>0<><>::res://scripts/title_screen.gd
-::res://scripts/::1779436237
+::res://scripts/::1779438905
 boss.gd::GDScript::7473754366888781179::1778492271::0::1::::<>CharacterBody2D<><>0<>0<><>::
 boss_health_bar.gd::GDScript::3543826652693943124::1778334521::0::1::::<>Control<><>0<>0<><>::
 codex_ui.gd::GDScript::3836799218891028678::1779436116::0::1::::<>Control<><>0<>0<><>::
@@ -208,8 +208,8 @@ coin_pickup.gd::GDScript::901895694075908174::1778492321::0::1::::<>Node2D<><>0<
 damage_number.gd::GDScript::5863372488398201499::1778069846::0::1::::<>Node2D<><>0<>0<><>::
 dialogue_ui.gd::GDScript::2333676348531783778::1778070318::0::1::::<>CanvasLayer<><>0<>0<><>::
 enemy_base.gd::GDScript::6762521812685098676::1778492246::0::1::::<>CharacterBody2D<><>0<>0<><>::
-enemy_spawner.gd::GDScript::8328133983913736959::1779436237::0::1::::<>Node2D<><>0<>0<><>::
-game_over_ui.gd::GDScript::6406576916546440833::1778434081::0::1::::<>CanvasLayer<><>0<>0<><>::
+enemy_spawner.gd::GDScript::8328133983913736959::1779438905::0::1::::<>Node2D<><>0<>0<><>::
+game_over_ui.gd::GDScript::6406576916546440833::1779438746::0::1::::<>CanvasLayer<><>0<>0<><>::
 game_scene.gd::GDScript::5300749001466847887::1778487050::0::1::::<>Node2D<><>0<>0<><>::
 hud.gd::GDScript::2667243017711409165::1778492409::0::1::::<>CanvasLayer<><>0<>0<><>::
 level_up_ui.gd::GDScript::6179314885901079900::1778435546::0::1::::<>CanvasLayer<><>0<>0<><>::
@@ -226,12 +226,12 @@ splash_screen.gd::GDScript::6182971123276847466::1778430913::0::1::::<>Control<>
 title_screen.gd::GDScript::1434300103285873537::1778435592::0::1::::<>Control<><>0<>0<><>::
 victory_settlement_ui.gd::GDScript::5834260003370718536::1778434107::0::1::::<>CanvasLayer<><>0<>0<><>::
 weapon_manager.gd::GDScript::8151105629638966678::1778435355::0::1::::<>Node2D<><>0<>0<><>::
-::res://scripts/autoload/::1779436221
+::res://scripts/autoload/::1779438816
 audio_manager.gd::GDScript::637592405730088981::1778489054::0::1::::<>Node<><>0<>0<><>::
 database.gd::GDScript::4786916838565464446::1778423906::0::1::::<>Node<><>0<>0<><>::
 dialogue_manager.gd::GDScript::4961907367859990299::1778069560::0::1::::<>Node<><>0<>0<><>::
 display_manager.gd::GDScript::561388600252487291::1778427198::0::1::::<>Node<><>0<>0<><>::
-game_manager.gd::GDScript::7186484835417712268::1779436221::0::1::::<>Node<><>0<>0<><>::
+game_manager.gd::GDScript::7186484835417712268::1779438816::0::1::::<>Node<><>0<>0<><>::
 global_save.gd::GDScript::8455151076553963340::1778431809::0::1::::<>Node<><>0<>0<><>::
 network_manager.gd::GDScript::1976678054595146653::1778427295::0::1::::<>Node<><>0<>0<><>::
 save_manager.gd::GDScript::2485509966371560848::1778316920::0::1::::<>Node<><>0<>0<><>::

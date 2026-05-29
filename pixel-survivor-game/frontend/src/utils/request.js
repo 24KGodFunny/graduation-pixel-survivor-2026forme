@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
+import { useAdminStore } from '../stores/admin'
 
 /**
  * 创建 Axios 实例
@@ -46,24 +47,31 @@ request.interceptors.request.use(config => {
  * 2. 弹出通用网络错误提示
  * 3. return Promise.reject(error) 继续向上抛出
  */
+function redirectToLogin() {
+  const adminStore = useAdminStore()
+  if (router.currentRoute.value.path === '/login') return
+  adminStore.logout()
+  router.push('/login')
+}
+
 request.interceptors.response.use(
   response => {
     const res = response.data
     if (res.code !== 200) {
-      // 业务错误：显示后端返回的错误信息
       ElMessage.error(res.message || '请求失败')
-      // 401 未授权：token 过期或无效 -> 清除登录态 -> 跳转登录页
       if (res.code === 401) {
-        localStorage.removeItem('admin_token')
-        router.push('/login')
+        redirectToLogin()
       }
-      // 返回 reject 让调用方可以通过 try/catch 处理
       return Promise.reject(new Error(res.message))
     }
     return res
   },
   error => {
-    // 网络层面的错误（无响应、超时等）
+    if (error.response && error.response.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      redirectToLogin()
+      return Promise.reject(error)
+    }
     ElMessage.error(error.message || '网络错误')
     return Promise.reject(error)
   }

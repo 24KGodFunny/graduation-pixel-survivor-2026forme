@@ -48,6 +48,25 @@ public class SyncServiceImpl implements SyncService {
      * @param data   上传的存档数据 DTO，包含 saveData（Map 形式的游戏存档键值对）
      * @throws BusinessException 当存档数据为空时抛出 PARAM_ERROR 异常
      */
+    /**
+     * 上传（同步）用户游戏存档数据到服务端
+     *
+     * 面试重点 - 并发场景分析:
+     *   同一用户可能在手机和电脑同时登录游戏并触发存档上传。没有锁的情况下：
+     *   1. 设备A读取旧存档 → 修改 → 写入
+     *   2. 设备B同时读取旧存档 → 修改 → 写入
+     *   3. 设备B后写入，覆盖了设备A的修改 → 设备A的数据丢失
+     *
+     * 面试重点 - Redisson tryLock 参数含义:
+     *   tryLock(3, 10, TimeUnit.SECONDS)
+     *   - waitTime=3: 最多等待 3 秒获取锁，3 秒内拿不到就放弃（避免无限阻塞）
+     *   - leaseTime=10: 锁最多持有 10 秒，超时自动释放（防止单个设备崩溃导致死锁）
+     *   - 如果业务执行超过 10 秒，Redisson 的 WatchDog 会自动续期（leaseTime > 0 时 WatchDog 不启动）
+     *
+     * 面试重点 - @Transactional(rollbackFor = Exception.class):
+     *   默认只回滚 RuntimeException，加 rollbackFor=Exception.class 确保所有异常都回滚。
+     *   但注意：分布式锁的 lock/unlock 在事务之外，锁的释放不依赖事务回滚。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void upload(Long userId, SyncUploadDTO data) {

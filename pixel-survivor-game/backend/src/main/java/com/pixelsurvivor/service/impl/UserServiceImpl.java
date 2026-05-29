@@ -86,6 +86,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @throws BusinessException 用户名或密码错误时抛出 USERNAME_OR_PASSWORD_ERROR 异常
      * @throws BusinessException 用户已被封禁时抛出 USER_DISABLED 异常
      */
+    /**
+     * 用户登录
+     *
+     * 面试重点 - BCrypt 密码验证:
+     *   passwordEncoder.matches(明文密码, 数据库中的BCrypt密文)
+     *   内部流程：从密文中提取 salt → 用 salt + 明文重新哈希 → 比对结果
+     *   BCrypt 是慢哈希算法（cost factor=10, 即 2^10=1024 轮计算），故意设计得很慢，
+     *   增加暴力破解成本。比 MD5/SHA256 安全得多（它们是快哈希，不适合密码场景）。
+     */
     @Override
     public User login(String username, String password) {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
@@ -122,6 +131,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @param userId 用户 ID
      * @return 用户实体
      * @throws BusinessException 当用户不存在时抛出 USER_NOT_FOUND 异常
+     */
+    /**
+     * 根据用户 ID 获取用户信息
+     *
+     * 面试重点 - Cache-Aside（旁路缓存）模式:
+     *   读流程：先查 Redis 缓存 → 命中直接返回 → 未命中查 MySQL → 回写 Redis（TTL 30min）
+     *   写流程：更新 MySQL → 删除 Redis 缓存（见 updateCurrency/updateGameStats 方法）
+     *
+     * 面试重点 - 为什么写操作是「先更新DB再删缓存」而不是反过来?
+     *   如果先删缓存再更新DB：删完缓存后、更新DB前，另一个请求查到旧数据并回写缓存，
+     *   导致缓存里永远是旧数据。
+     *   先更新DB再删缓存：即使有短暂不一致（另一个请求读到旧缓存），删完后下次请求
+     *   就会读到新数据，不一致窗口很短。
+     *
+     * 面试重点 - Redis 降级策略:
+     *   所有 Redis 操作都包裹 try-catch，Redis 不可用时静默降级到直接查 MySQL。
+     *   核心原则：宁可失去缓存加速，也不能影响业务可用性。
      */
     @Override
     public User getUserById(Long userId) {

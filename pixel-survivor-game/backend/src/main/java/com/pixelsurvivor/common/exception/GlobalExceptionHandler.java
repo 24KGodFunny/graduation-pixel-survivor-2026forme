@@ -13,8 +13,19 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * 全局异常处理器
- * <p>使用 @RestControllerAdvice 统一拦截并处理各类异常，
- * 将异常转换为标准的 Result 响应格式返回给客户端</p>
+ *
+ * 面试重点 - 为什么需要全局异常处理?
+ *   如果没有全局异常处理，每个 Controller 方法都要 try-catch 异常并手动构造错误响应。
+ *   @RestControllerAdvice + @ExceptionHandler 可以统一拦截异常，Controller 只管抛异常。
+ *
+ * 面试重点 - 异常处理的优先级:
+ *   具体异常的 @ExceptionHandler 优先于通用的 Exception handler。
+ *   本项目处理顺序：BusinessException（业务异常）→ 参数校验异常 → 兜底 Exception。
+ *   兜底 handler 记录完整堆栈日志，但只返回 "服务器内部错误"，不暴露内部信息给客户端（安全考虑）。
+ *
+ * 面试重点 - @RestControllerAdvice vs @ControllerAdvice:
+ *   @RestControllerAdvice = @ControllerAdvice + @ResponseBody
+ *   方法返回值自动作为 HTTP 响应体（JSON），不需要额外加 @ResponseBody。
  *
  * @author PixelSurvivor
  */

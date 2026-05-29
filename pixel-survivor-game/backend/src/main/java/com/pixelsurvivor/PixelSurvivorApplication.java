@@ -9,8 +9,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * 像素幸存者 - 游戏后端服务启动类
  * <p>Spring Boot应用入口，启用MyBatis Mapper扫描和定时任务调度，
  * 启动后默认监听8080端口，提供游戏端和管理端REST API服务</p>
- *
- * @author PixelSurvivor
  */
 @SpringBootApplication
 @MapperScan("com.pixelsurvivor.mapper")

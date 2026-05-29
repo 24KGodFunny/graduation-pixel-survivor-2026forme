@@ -30,6 +30,11 @@ public class JwtUtil {
     @Value("${jwt.admin-token-expire}")
     private long adminTokenExpire;
 
+    /**
+     * 根据配置的密钥字符串生成 HMAC-SHA256 签名密钥
+     * 面试重点：JWT 签名使用 HMAC-SHA256 算法，攻击者不知道 secret 就无法伪造签名。
+     * 即使修改了 Payload 重新 Base64 编码，服务端验签时会发现签名不匹配而拒绝。
+     */
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }

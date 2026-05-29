@@ -78,13 +78,29 @@ const router = createRouter({
  *
  * 注意：这里只是前端层面的简单鉴权，真正的权限校验在后端通过 JWT token 完成
  */
+function isTokenExpired(token) {
+  try {
+    const base64Url = token.split('.')[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(base64))
+    return payload.exp * 1000 < Date.now()
+  } catch {
+    return true
+  }
+}
+
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('admin_token')
-  if (to.path !== '/login' && !token) {
-    next('/login')
-  } else {
-    next()
+  if (to.path !== '/login') {
+    if (!token || isTokenExpired(token)) {
+      localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_username')
+      localStorage.removeItem('admin_role')
+      next('/login')
+      return
+    }
   }
+  next()
 })
 
 export default router

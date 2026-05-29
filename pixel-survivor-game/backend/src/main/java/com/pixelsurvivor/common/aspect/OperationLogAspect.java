@@ -17,9 +17,28 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * 操作日志AOP切面
- * <p>拦截所有标注了 {@link OperationLog} 注解的Controller方法，
- * 通过 @Around 环绕通知自动记录：操作人、模块、类型、请求参数、
- * 响应结果、IP地址、耗时等信息，并异步写入 admin_operation_log 表</p>
+ *
+ * 面试重点 - AOP 核心概念:
+ *   切面（Aspect）= 切点（Pointcut）+ 通知（Advice）
+ *   - 切点：@annotation(operationLog) 表示拦截所有标注了 @OperationLog 注解的方法
+ *   - 通知：@Around 环绕通知，可以控制方法执行前后的逻辑
+ *
+ * 面试重点 - @Around vs @Before/@After:
+ *   @Around 是最强大的通知类型，可以：
+ *   (1) 在方法执行前做处理
+ *   (2) 调用 joinPoint.proceed() 执行目标方法
+ *   (3) 在方法执行后做处理（无论成功或异常）
+ *   (4) 修改返回值（本项目没用到这个能力）
+ *   @Before 只能在方法前执行，@After 只能在方法后执行，都不能拿到方法耗时。
+ *
+ * 面试重点 - 为什么用 JdbcTemplate 而不是 MyBatis Mapper?
+ *   AOP 切面的初始化时机可能早于某些 Bean，在切面中注入 Mapper 可能有循环依赖风险。
+ *   JdbcTemplate 是 Spring 原生提供的，注入更安全。而且日志写入只是简单 INSERT，
+ *   不需要 MyBatis 的查询能力。
+ *
+ * 面试重点 - 为什么在 finally 块中保存日志?
+ *   finally 块保证无论目标方法正常返回还是抛异常，日志都会被记录。
+ *   如果方法抛异常，errorMsg 会记录异常信息，日志照样入库。
  *
  * @author PixelSurvivor
  */

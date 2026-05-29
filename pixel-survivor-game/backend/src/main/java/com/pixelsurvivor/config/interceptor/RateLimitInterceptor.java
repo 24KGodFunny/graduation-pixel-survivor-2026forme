@@ -18,13 +18,21 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * API 请求频率限制拦截器
- * <p>拦截所有标注了 {@link RateLimit} 注解的 Controller 方法，
- * 使用 Redis String 的 INCR + EXPIRE 实现固定窗口（Fixed Window）限流算法。
- * 每个 IP 在指定时间窗口内只能发起有限次请求，超出限制返回 HTTP 429 状态码。
- * 当 Redis 不可用时自动"放行"（fail-open），避免因基础设施故障影响正常服务。</p>
  *
- * <p>限流 Key 格式：{@code rate:api:192.168.1.1}，
- * 前缀常量定义在 {@link RedisConstant#RATE_API}</p>
+ * 面试重点 - 固定窗口限流算法:
+ *   用 Redis INCR 命令对每个 IP 的请求计数，原子操作保证并发安全。
+ *   首次请求（INCR 返回 1）时设置 EXPIRE 过期时间，窗口结束后计数器自动清除。
+ *   简单高效，但存在临界点问题：窗口切换瞬间可能有 2 倍流量突刺。
+ *
+ * 面试重点 - 固定窗口 vs 滑动窗口 vs 令牌桶:
+ *   固定窗口：简单（2 条 Redis 命令），但有临界点突刺
+ *   滑动窗口：记录每次请求时间戳，精确但内存开销大（可用 Sorted Set 实现）
+ *   令牌桶：固定速率放令牌，允许突发流量（桶容量 > 1），适合需要平滑限流的场景
+ *
+ * 面试重点 - fail-open vs fail-closed:
+ *   fail-open（本项目采用）：Redis 挂了就放行请求。优点：不影响业务可用性。
+ *   缺点：失去限流保护。适合内部系统、对可用性要求高的场景。
+ *   fail-closed：Redis 挂了就拒绝所有请求。优点：安全。缺点：Redis 故障导致服务不可用。
  *
  * @author PixelSurvivor
  */
